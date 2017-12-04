@@ -40,7 +40,7 @@ The original image brightness is convolved with the following function:
 ```
  Here, "r" refers to disance from the Z axis
  "s" and "t" are widths in nm (specified by the arguments following "-width-xy")
- "m" and "n" are exponents (specified by the arguments following "-width-z")
+ "m" and "n" are exponents (specified by the arguments following "-exponents")
  and "A" and "B" are chosen automatically so that h_xy(r=0) = A+B = 1, and
  the sum of h_xy(r) for all pixels in the filter range is zero.
  This crude generalization of the "gaussian" function gives us an ad-hoc way to alter the shape of the filter.
