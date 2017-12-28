@@ -52,9 +52,10 @@ void Dealloc3D(Integer size[3],
     delete [] (*paaaX);
     *paaaX = NULL;
   }
-  if (paX && *paX)
+  if (paX && *paX) {
     delete [] *paX;
-  *paX = NULL;
+    *paX = NULL;
+  }
 }
 
 

@@ -8,12 +8,12 @@ using namespace std;
 
 
 
-template<class Number, class Integer>
+template<class RealNum, class Integer>
 
 class Filter3D {
 public:
-  Number *af;
-  Number ***aaafWeights;
+  RealNum *af;
+  RealNum ***aaafWeights;
   Integer size[3];
 
 
@@ -22,9 +22,9 @@ public:
   // Save the results in the "aaafDest" array.  (A "mask" is optional.)
   // All arrays are 3D and assumed to be the same size, given by size_source[].
   void Apply(Integer size_source[3],
-             Number ***aaafSource,
-             Number ***aaafDest,
-             Number ***aaafMask = NULL,
+             RealNum ***aaafSource,
+             RealNum ***aaafDest,
+             RealNum ***aaafMask = NULL,
              bool precompute_mask_times_source = false,
              ostream *preport_progress = NULL) const
   {
@@ -72,8 +72,8 @@ public:
           if ((aaafMask) && (aaafMask[iz][iy][ix] == 0.0))
           continue;
           
-          Number g = 0.0;
-          Number denominator = 0.0;
+          RealNum g = 0.0;
+          RealNum denominator = 0.0;
 
           for (Integer jz=-size[2]; jz<=size[2]; jz++) {
 
@@ -90,7 +90,7 @@ public:
                 if ((ix-jx < 0) || (size_source[0] <= ix-jx))
                   continue;
 
-                Number delta_g = 
+                RealNum delta_g = 
                   aaafWeights[jz+size[2]]
                              [jy+size[1]]
                              [jx+size[0]] *
@@ -144,12 +144,12 @@ public:
   ~Filter3D() {
     Integer table_size[3];
     for(Integer d=0; d < 3; d++)
-      table_size[d] = 1+2*size[d];
+      table_size[d] = 1 + 2*size[d];
     Dealloc3D(table_size, &af, &aaafWeights);
   }
   void Normalize() {
     // Make sure the sum of the filter weights is 1
-    Number total = 0.0;
+    RealNum total = 0.0;
     for (Integer iz=-size[2]; iz<=size[2]; iz++)
       for (Integer iy=-size[1]; iy<=size[1]; iy++)
         for (Integer ix=-size[0]; ix<=size[0]; ix++)

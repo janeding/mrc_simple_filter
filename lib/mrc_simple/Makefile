@@ -14,7 +14,7 @@ INTERNAL_LIB_PATH = ..
 LIBS =
 
 INCLUDES = \
--I$(INTERNAL_LIB_PATH)/alloc3d
+-I$(INTERNAL_LIB_PATH)/alloc
 
 #Default target: create a library
 libmrc_simple.a: mrc_simple.o

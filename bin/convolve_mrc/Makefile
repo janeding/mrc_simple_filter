@@ -23,46 +23,46 @@ $(INTERNAL_LIB_PATH)/mrc_simple/libmrc_simple.a
 
 
 INCLUDES = \
--I$(INTERNAL_LIB_PATH)/alloc3d \
--I$(INTERNAL_LIB_PATH)/filter3d \
+-I$(INTERNAL_LIB_PATH)/alloc \
+-I$(INTERNAL_LIB_PATH)/filter \
 -I$(INTERNAL_LIB_PATH)/threshold \
 -I$(INTERNAL_LIB_PATH)/mrc_simple
 
 
-OBJECT_FILES = settings.o filter_gauss.o
+OBJECT_FILES = settings.o convolve_mrc.o
 
 
-OBJECT_SRC = settings.cpp filter_gauss.cpp
+OBJECT_SRC = settings.cpp convolve_mrc.cpp
 
 RCS_FILES = $(OBJECT_SRC)
 
 
 
-#Default target: the filter_gauss binary
-#                "filter_gauss" is the lattice polymer simulator
-filter_gauss: $(OBJECT_FILES) $(LIB_FILES)
-	$(ANSI_CPP) $(LFLAGS) -o filter_gauss \
+#Default target: the convolve_mrc binary
+#                "convolve_mrc" is the lattice polymer simulator
+convolve_mrc: $(OBJECT_FILES) $(LIB_FILES)
+	$(ANSI_CPP) $(LFLAGS) -o convolve_mrc \
 	$(OBJECT_FILES) \
 	$(LIBS)
 
 
 install:
-	$(MAKE) ANSI_C="$(ANSI_C)" ANSI_CPP="$(ANSI_CPP)" L_COMP="$(L_COMP)" CFLAGS="$(CFLAGS)" LFLAGS="$(LFLAGS)" INSTALL_PATH="$(INSTALL_PATH)" filter_gauss
-	cp -f filter_gauss $(INSTALL_PATH)
-	#cp -f docs_filter_gauss.txt $(INSTALL_PATH)
+	$(MAKE) ANSI_C="$(ANSI_C)" ANSI_CPP="$(ANSI_CPP)" L_COMP="$(L_COMP)" CFLAGS="$(CFLAGS)" LFLAGS="$(LFLAGS)" INSTALL_PATH="$(INSTALL_PATH)" convolve_mrc
+	cp -f convolve_mrc $(INSTALL_PATH)
+	#cp -f docs_convolve_mrc.txt $(INSTALL_PATH)
 
 checkout:
 	co -q $(RCS_FILES)
 
-GENERATED_FILES = *.o *.a core filter_gauss $(COMPILER_TEMP_FILES) $(LINKER_TEMP_FILES)
+GENERATED_FILES = *.o *.a core convolve_mrc $(COMPILER_TEMP_FILES) $(LINKER_TEMP_FILES)
 
 clean:
 	rm -f $(GENERATED_FILES)
 
 distclean:
 	$(MAKE) clean
-	rm -f $(INSTALL_PATH)/filter_gauss
-	#rm -f $(INSTALL_PATH)/docs_filter_gauss.txt
+	rm -f $(INSTALL_PATH)/convolve_mrc
+	#rm -f $(INSTALL_PATH)/docs_convolve_mrc.txt
 
 depend:
 	mv Makefile Makefile.tmp
