@@ -3,13 +3,20 @@ convolve_mrc
 
 **convolve_mrc** applies a filter to a tomogram in the X,Y,Z directions
 and saves the result as a new .mrc/.rec file.
+This program can be used to rescale or invert a 3-D image,
+remove high or low frequencies (smoothing, edge detection, band pass filter).
+perform 3-D blob detection.
+Currently, the program supports the following list of filters:
+(generalized) Gaussians,
+(generalized) Difference-of-Gaussians,
+Lapplacian-of-Gaussians, and others.
+Both isotropic and anisotropic filters are supported.
 
-This program supports masks ans thresholding using
+
+This program supports masks and thresholding using
 the "*-mask*" and "*-thresh*" (and "*-thresh2*" and "*-thresh4*") arguments.
 
-### Distance measurements:
-
-In this program all of the distances provided by the user are assumed to be in *physical units*.  (Not *voxels*.  This effects all of the gaussian "sigma" parameters, specifically all of the "-width-xy" and "-width-z" and "-window" arguments.  To express these distances in *voxels* instead of *nm*, set the voxel_width to 1.0 using "-w 1.0".)
+*In this program all of the parameters provided by the user are assumed to be in **physical units**.  (Not **voxels**.  This effects all of the gaussian "sigma" parameters, specifically all of the "-width-xy" and "-width-z" and "-window" arguments.  To express these distances in *voxels* instead, set the voxel_width to 1.0 using "-w 1.0".  See below)*
 
 
 ## Usage Example:
@@ -28,7 +35,7 @@ convolve_mrc \
 
 ## Arguments:
 
-## Input and Output files
+### Input and Output files
 
 The user must specify the name of the tomogram they wish to process using the
 "-in" argument:
@@ -44,7 +51,7 @@ using the "-out" argument:
    -out DESTINATION_FILE.mrc
 ```
 
-## Voxel Width
+### Voxel Width
 
 ```
    -w voxelwidth
@@ -77,18 +84,18 @@ coupled with an ordinary Gaussian filter in the Z direction.
 In these examples, the Gaussians can be customized,
 although it may slow down the filtering process significantly.
 
-## -gauss
+### -gauss-aniso
 The -gauss argument must be followed by 3 numbers:
 ```
-   -gauss  s_x  s_y  s_z
+   -gauss-aniso  s_x  s_y  s_z
 ```
-If the "-gauss" filter is selected, the
+If the "-gauss-ansi" filter is selected, the
 original image is convolved with the following function:
 ```
    h(x,y,z) = A*exp(-0.5 * r^2)
     where r = sqrt((x/s_x)^2 + (y/s_y)^2 + (z/s_z)^2))
 ```
-The width of the Gaussian (ie, the s_x,s_y,s_z arguments) should be specified in units of physical distance, not in voxels.
+The width of the Gaussian (ie, the s_x, s_y, s_z arguments) should be specified in units of physical distance, not in voxels.
 By default the domain of the filter is extended in each direction to a distance
 of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
 (The A coefficient will determined automatically by normalization, ie., so that the discrete sum of h(x,y,z) over x,y,z is 1.)
@@ -104,20 +111,46 @@ This will slow down the filter considerably.
  and the full 3-D convolution must be performed.)
 
 
-## -dog
-The -dog argument must be followed by 6 numbers:
+### -log-aniso
+The -log-aniso argument must be followed by 3 numbers:
+
+```
+  -log-aniso  s_x  s_y  s_z
+```
+If the "-log" filter is selected, the
+a "laplacian-of-gaussians" filter will be used.
+The original image is convolved with the following function:
+```
+   h(x,y,z) = A*exp(-0.5 * r_a^2) - B*exp(-0.5 * r_b^2)
+  where r_a = sqrt((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))
+    and r_b = sqrt((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))
+      a_x=s_x*(1-0.5*delta), a_y=s_y*(1-0.5*delta), a_z=s_z*(1-0.5*delta)
+      b_x=s_x*(1+0.5*delta), b_y=s_y*(1+0.5*delta), b_z=s_z*(1+0.5*delta)
+```
+The A and B parameters are determined automatically by normalization.
+The "delta" parameter is 0.01 by default.
+(This can be overridden using the "-log-delta delta" argument.)
+The width of the Gaussian (the s_x, s_y, s_z arguments) should be specified in units of physical distance, not in voxels.
+The A and B coefficients will be automatically chosen so that the discrete sum of h(x,y,z) over x,y,z is 0, and the peak height is 1 (A-B=1).
+By default the domain of the filter is extended in each direction to a distance
+of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
+
+
+### -dog-aniso
+The -dog-aniso argument must be followed by 6 numbers:
 
 ```
   -dog  a_x  a_y  a_z  b_x  b_y  b_z
 ```
-If the "-dog" filter is selected, the
-original image is convolved with the following function:
+If the "-dog" filter is selected
+a "difference-if-gaussians" filter will be used.
+The original image is convolved with the following function:
 ```
    h(x,y,z) = A*exp(-0.5 * r_a^2) - B*exp(-0.5 * r_b^2)
   where r_a = sqrt((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))
     and r_b = sqrt((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))
 ```
-The width of the Gaussian (the a_x,a_y,a_z,b_x,b_y,b_z arguments) should be specified in units of physical distance, not in voxels.
+The width of the Gaussian (the a_x, a_y, a_z, b_x, b_y, b_z arguments) should be specified in units of physical distance, not in voxels.
 The A and B coefficients will be automatically chosen so that the discrete sum of h(x,y,z) over x,y,z is 0, and the peak height is 1 (A-B=1).
 By default the domain of the filter is extended in each direction to a distance
 of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
@@ -134,7 +167,7 @@ This crude generalization of the "gaussian" function gives us an ad-hoc way
 to alter shape of the filter.
 
 
-## -dogxy
+### -dogxy
 The -dogxy argument must be followed by 3 numbers:
 ```
   -dog  a  b  c
@@ -157,12 +190,13 @@ the original image is convolved with the following function:
 
  Along the Z direction, the filter used is a simple Gaussian:
 ```
-   h_z(r) = C*exp(-0.5*(z/c)^2)
+   h_z(r) = C * exp(-0.5*(z/c)^2)
 ```
+(The "C" constant is determined by normalization.)
 
 ## Additional Arguments:
 
-## Filter Size
+### Filter Size
 ```
    -cutoff ratio
 ```

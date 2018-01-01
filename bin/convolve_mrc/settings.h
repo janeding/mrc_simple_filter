@@ -82,10 +82,11 @@ class Settings {
 
   typedef enum eFilterType {
     GAUSS, //3D Gaussian filter
-    DOG,   //3D difference-of-Gaussians filter (general)
-    DOGXY, //2D difference-of-Gaussians (XY direction)
+    DOG,   //3D Difference-of-Gaussians filter (general)
+    DOGXY, //2D Difference-of-Gaussians (XY direction)
            //and a 1D Gaussian filter (Z direction)
-    DOG_FAST //3D difference of Gaussians (fast)
+    DOG_FAST, //3D difference of Gaussians (fast)
+    LOG    //3D Laplacian-of-Gaussian (fast)
   } FilterType; 
   
   FilterType filter_type = GAUSS;

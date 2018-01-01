@@ -98,6 +98,8 @@ void
 Settings::ParseArgs(vector<string>& vArgs)
 {
   bool exponents_set_by_user = false;
+  float log_width[3];
+  float log_delta_t_over_t = 0.01;
   for (int i=1; i < vArgs.size(); ++i)
   {
 
@@ -185,9 +187,9 @@ Settings::ParseArgs(vector<string>& vArgs)
     } // if (vArgs[i] == "-norescale")
 
 
-    else if (vArgs[i] == "-gauss")
+    else if (vArgs[i] == "-gauss-aniso")
     {
-      if ((i+5 >= vArgs.size()) ||
+      if ((i+3 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
           (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
@@ -204,10 +206,29 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_b[2] = -1.0;
       filter_type = GAUSS;
       num_arguments_deleted = 4;
+    } //if (vArgs[i] == "-gauss-aniso")
+
+    else if ((vArgs[i] == "-gauss") || (vArgs[i] == "-gauss-iso"))
+    {
+      if ((i+1 >= vArgs.size()) ||
+          (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
+        throw string("Error: The " + vArgs[i] + 
+                     " argument must be followed by 3 positive numbers:\n"
+                     " a_xy  b_xy  a_z\n"
+                     " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
+                     "  followed by the Gaussian width in the Z direction.)\n");
+      width_a[0] = stof(vArgs[i+1]);
+      width_a[1] = width_a[0];
+      width_a[2] = width_a[0];
+      width_b[0] = -1.0;
+      width_b[1] = -1.0;
+      width_b[2] = -1.0;
+      filter_type = GAUSS;
+      num_arguments_deleted = 2;
     } //if (vArgs[i] == "-gauss")
 
 
-    else if ((vArgs[i] == "-dog") || (vArgs[i] == "-dogxyz"))
+    else if ((vArgs[i] == "-dog-aniso") || (vArgs[i] == "-dogxyz-aniso"))
     {
       if ((i+6 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
@@ -232,7 +253,7 @@ Settings::ParseArgs(vector<string>& vArgs)
     } //if (vArgs[i] == "-dog")
 
 
-    else if ((vArgs[i] == "-dog-iso") || (vArgs[i] == "-dogxyz-iso"))
+    else if ((vArgs[i] == "-dog") || (vArgs[i] == "-dog-iso"))
     {
       if ((i+2 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
@@ -284,7 +305,7 @@ Settings::ParseArgs(vector<string>& vArgs)
     } //if (vArgs[i] == "-dogxy-aniso")
 
 
-    else if (vArgs[i] == "-dogxy")
+    else if ((vArgs[i] == "-dogxy") || (vArgs[i] == "-dogxy-iso"))
     {
       if ((i+5 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
@@ -313,35 +334,47 @@ Settings::ParseArgs(vector<string>& vArgs)
       num_arguments_deleted = 4;
     } //if (vArgs[i] == "-dogxy")
 
-    else if ((vArgs[i] == "-blob-aniso") || (vArgs[i] == "-log-aniso"))
+
+    else if ((vArgs[i] == "-log-aniso") || (vArgs[i] == "-blob-aniso"))
     {
-      if ((i+4 >= vArgs.size()) ||
+      if ((i+3 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
-          (vArgs[i+3] == "") || (vArgs[i+3][0] == '-') ||
-          (vArgs[i+4] == "") || (vArgs[i+4][0] == '-'))
+          (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
         throw string("Error: The " + vArgs[i] + 
                      " argument must be followed by 3 positive numbers.\n");
-      float width[3];
-      width[0] = stof(vArgs[i+1]);
-      width[1] = stof(vArgs[i+2]);
-      width[2] = stof(vArgs[i+3]);
-      float delta_t_over_t = stof(vArgs[i+4]);
+      log_width[0] = stof(vArgs[i+1]);
+      log_width[1] = stof(vArgs[i+2]);
+      log_width[2] = stof(vArgs[i+3]);
+      filter_type = LOG;
+      num_arguments_deleted = 4;
+    } //if ((vArgs[i] == "-log-aniso") || (vArgs[i] == "-blob-aniso"))
 
-      // "-blob" uses an approximation to the "Laplacian of a Gaussian" ("LOG").
-      // For background details see:
-      // https://en.wikipedia.org/wiki/Blob_detection
-      // https://en.wikipedia.org/wiki/Difference_of_Gaussians
-      // https://en.wikipedia.org/wiki/Mexican_hat_wavelet
-      width_a[0] = width[0] * (1.0 - 0.5*delta_t_over_t);
-      width_a[1] = width[1] * (1.0 - 0.5*delta_t_over_t);
-      width_a[2] = width[2] * (1.0 - 0.5*delta_t_over_t);
-      width_b[0] = width[0] * (1.0 + 0.5*delta_t_over_t);
-      width_b[1] = width[1] * (1.0 + 0.5*delta_t_over_t);
-      width_b[2] = width[2] * (1.0 + 0.5*delta_t_over_t);
-      filter_type = DOG;
-      num_arguments_deleted = 5;
+
+    else if ((vArgs[i] == "-log") ||
+             (vArgs[i] == "-log-iso") ||
+             (vArgs[i] == "-blob") ||
+             (vArgs[i] == "-blob-iso"))
+    {
+      if ((i+1 >= vArgs.size()) ||
+          (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
+        throw string("Error: The " + vArgs[i] + 
+                     " argument must be followed by 3 positive numbers.\n");
+      log_width[0] = stof(vArgs[i+1]);
+      log_width[1] = log_width[0];
+      log_width[2] = log_width[0];
+      filter_type = LOG;
+      num_arguments_deleted = 2;
     } //if ((vArgs[i] == "-blob-aniso") || (vArgs[i] == "-log-aniso"))
+
+
+    else if ((vArgs[i] == "-blob-delta") || (vArgs[i] == "-log-delta")) {
+      if ((i+1 >= vArgs.size()) ||
+          (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
+        throw string("Error: The " + vArgs[i] + 
+                     " argument must be followed by 1 positive number.\n");
+      log_delta_t_over_t = stof(vArgs[i+1]);
+    }
 
 
     else if (vArgs[i] == "-cutoff")
@@ -550,6 +583,26 @@ Settings::ParseArgs(vector<string>& vArgs)
     throw "Error: You must specify the name of the tomogram you want to read\n"
           "       using the \"-out DESTINATION_FILE.mrc\" argument\n"
           "       (\".rec\" files are also supported.)\n";
+  }
+
+  if (filter_type == LOG) {
+    // "-log" approximates to the "Laplacian of a Gaussian" ("LOG") filter
+    // with the difference of two Gaussians ("DOG") filter.
+    // (The two Gaussians have widths which are slightly above and
+    //  slightly below the width parameters specified by the user.)
+    // For background details see:
+    // https://en.wikipedia.org/wiki/Blob_detection
+    // https://en.wikipedia.org/wiki/Difference_of_Gaussians
+    // https://en.wikipedia.org/wiki/Mexican_hat_wavelet
+    width_a[0] = log_width[0] * (1.0 - 0.5*log_delta_t_over_t);
+    width_a[1] = log_width[1] * (1.0 - 0.5*log_delta_t_over_t);
+    width_a[2] = log_width[2] * (1.0 - 0.5*log_delta_t_over_t);
+    width_b[0] = log_width[0] * (1.0 + 0.5*log_delta_t_over_t);
+    width_b[1] = log_width[1] * (1.0 + 0.5*log_delta_t_over_t);
+    width_b[2] = log_width[2] * (1.0 + 0.5*log_delta_t_over_t);
+    exponent_m = 2.0;
+    exponent_n = 2.0;
+    filter_type = DOG_FAST;
   }
 
   // ----------

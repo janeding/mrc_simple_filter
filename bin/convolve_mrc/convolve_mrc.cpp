@@ -6,8 +6,10 @@
 #include <string>
 //#include <fftw3.h>  not needed yet
 using namespace std;
-#include <alloc.h>
-#include <filter.h>
+#include <alloc2d.h>
+#include <alloc3d.h>
+#include <filter2d.h>
+#include <filter3d.h>
 #include <threshold.h>
 #include <mrc_simple.h>
 #include "settings.h"
@@ -16,15 +18,11 @@ using namespace std;
 
 
 
-template<class RealNum>
+template<class RealNum >
 inline RealNum SQR(RealNum x) { return x*x; }
 
-template<class RealNum>
+template<class RealNum >
 inline RealNum MAX(RealNum x, RealNum y) { return ((x<y) ? y : x); }
-
-template<class RealNum, class Integer>
-
-
 
 
 template<class RealNum, class Integer>
@@ -70,8 +68,7 @@ RealNum GenFilterGenDog2D(Integer const size[2], //Size of the filter we want
                           RealNum width_b[2],  //"b" parameter in formula
                           RealNum exponent_m,  //"m" parameter in formula
                           RealNum exponent_n,  //"n" parameter in formula
-                          RealNum tolerance = 1.0e-6,
-                          int     max_iters = 100)
+                          RealNum *window_cutoff_ratio=NULL) //optional
 {
   RealNum A = 1.0;
   RealNum Bmin = -1.0;
@@ -81,20 +78,25 @@ RealNum GenFilterGenDog2D(Integer const size[2], //Size of the filter we want
   int niters = 0;
   RealNum **aafA, **aafB;
 
-  // Optional:
-  // Set the filter to zero whenever the value decays below "cutoff"
-  // Make sure "cutoff" is compatible with the cutoffs in the x,y directions
-  // This gives the filter a round shape (instead of a rectangular shape).
-  RealNum cutoff = 1.0;
-  for (int d=0; d<2; d++) {
-    RealNum h;
-    h = exp(-pow(window_cutoff_ratio[d], exponent_m));
-    if (h < cutoff)
-      cutoff = h;
+  if (window_size_ratio) {
+    // Optional:
+    // Set the filter to zero whenever the value decays below "cutoff"
+    // Make sure "cutoff" is compatible with the cutoffs in the x,y directions
+    // This gives the filter a round shape (instead of a rectangular shape).
+    RealNum cutoff = 1.0;
+    // We consider the possibility that the user might have set different
+    // ratios for the x,y,z directions.  Hmm. this looks like stupid code.
+    // Why do we have different ratios in x,y,z directions, and why not use max?
+    for (int d=0; d<2; d++) {
+      RealNum h;
+      h = exp(-pow(window_cutoff_ratio[d], exponent_m));
+      if (h < cutoff)
+        cutoff = h;
 
-    h = exp(-pow(window_cutoff_ratio[d], exponent_n));
-    if (h < cutoff)
-      cutoff = h;
+      h = exp(-pow(window_cutoff_ratio[d], exponent_n));
+      if (h < cutoff)
+        cutoff = h;
+    }
   }
 
   filterXY_A = Filter2D<float, int>(filter_window_size);

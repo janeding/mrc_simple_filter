@@ -12,15 +12,18 @@ Detailed documentation for this program is located in in the "*doc/*" subdirecto
 
 
 ### merge_mrc examples:
+
+#### + binary operation
 To **add** the brightness values between to tomograms and save the result in a new file ("out_file.mrc"), use:
 ```
    merge_mrc file1.mrc  +  file2.mrc  out_file.mrc
 ```
+#### * binary operation
 To **multiply** the brightness values use:
 ```
    merge_mrc file1.mrc "*" file2.mrc  out_file.mrc
 ```
-The quotes around the ** * ** character are
+(In the last example, the quotes around the "*" character are necessary to prevent the shell interpreting "*" incorrectly as a wildcard.)
 
 The following examples apply 1, 2 or 4 thresholds to the input tomograms before performing the **+** or **\*** operation.  You specify the thresholds you want to use with commas placed after the file name (no spaces).  The following command will replace all of the brightness of all the voxels whos brightess is below 0.5 with 0, and all of brightnesses above 0.5 with 1, and *then* multiply them together:
 ```
@@ -37,7 +40,7 @@ The following command will replace all of the brightness of all the voxels whose
 ```
    merge_mrc file1.mrc,0.48,0.49 + file2.mrc,0.48,0.49 out_file.mrc
 ```
-*(Again, a detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_filter_gauss.md" file.)*
+*(Again, a detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_convolve_mrc.md" file.)*
 
 When 4 numbers follow an input file name, the brightness of all the voxels from that tomogram in that file will be run through a **double-threshold** filter.  For example to replace voxels from both tomograms whose brightess falls below *0.48* with ***0***, and replace all of brightnesses between *0.49* and *0.51* with ***1***, and all of the brightness values above *0.52* with ***0*** again (linearly scaling any voxels with brightnesses between *0.48* and *0.49*, or between *0.51* and *0.52*), use this command:
 ```
@@ -77,4 +80,10 @@ Similarly, when 4 thresholds are specified, you can invert the output image by a
 ### "not" operations
 *In addition to "**and**" and "**or**" operations, you can also perform "not" operations.  You can perform the "**not**" operation on each **input** by reversing the order of the thresholds following a file name.  The example above ("file1.mrc,0.6,0.4) demonstrates how to do that.*
 
-*"**not**" operations can also be performed on the **output** image by saving it to a file, and later using the "filter_gauss" program with a small sigma parameter of approximately ~1e-06 (to avoid blurring the image), and then using the "-thresh2" argument with the first threshold number greater than the second.*
+
+*Incidentally, "**not**" operations can also be performed on the **output** image by saving it to a file, and later using the "convolve_mrc" program
+program with a small sigma parameter of approximately ~1e-06 (to avoid blurring the image), and then using the "-thresh2" argument with the first threshold number greater than the second.  For example:*
+```
+   convolve_mrc -gauss 1e-6 1e-6 1e-6 -thresh 0.51 0.49 -in file.mrc -out not_file.mrc
+```
+
