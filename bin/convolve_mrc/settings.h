@@ -77,8 +77,8 @@ class Settings {
 
   float width_a[3];    //"a" parameter in formula above
   float width_b[3];    //"b" parameter in formula above
-  float exponent_m;    //"m" parameter in formula above
-  float exponent_n;    //"n" parameter in formula above
+  float m_exp;         //"m" parameter in formula above
+  float n_exp;         //"n" parameter in formula above
 
   typedef enum eFilterType {
     GAUSS, //3D Gaussian filter
@@ -91,7 +91,7 @@ class Settings {
   
   FilterType filter_type = GAUSS;
 
-  float window_cutoff_ratio[3];
+  float window_cutoff_ratio;
 
   //float window_sigma_dog;    //In directions where a diff-of-gauss is used
   //                           //use this as the window size (in units of

@@ -13,8 +13,8 @@ public:
   RealNum *afWeights;
   Integer size;
 
-  // Apply the filter to tomographic data in the "aafSource" array
-  // Save the results in the "aafDest" array.  (A "mask" is optional.)
+  // Apply the filter to tomographic data in the "afSource" array
+  // Save the results in the "afDest" array.  (A "mask" is optional.)
   // All arrays are 1D and assumed to be the same size, given by size_source.
   void Apply(Integer size_source,
              RealNum **afSource,
@@ -23,7 +23,7 @@ public:
              bool precompute_mask_times_source = false) const
   {
 
-    // Apply the filter to the original tomogram data. (Store in aafSource)
+    // Apply the filter to the original tomogram data. (Store in afSource)
     //        ___
     //        \
     // g(i) = /__  h(j) * f(i-j)
@@ -51,7 +51,7 @@ public:
 
     for (Integer ix=0; ix<size_source; ix++) {
 
-      if ((afMask) && (aafMask[ix] == 0.0))
+      if ((afMask) && (afMask[ix] == 0.0))
         continue;
           
       RealNum g = 0.0;
@@ -62,7 +62,7 @@ public:
         if ((ix-jx < 0) || (size_source <= ix-jx))
           continue;
 
-        RealNum delta_g = afWeights[jx+size] * aafSource[ix-jx];
+        RealNum delta_g = afWeights[jx+size] * afSource[ix-jx];
 
         if (! precompute_mask_times_source)
           delta_g *= afMask[ix-jx];
@@ -90,6 +90,26 @@ public:
     }
   } //Filter1D::Apply()
 
+  void Resize(Integer size_half) {
+    if (afWeights)
+      delete [] afWeights;
+    size = size_half;
+    Integer table_size = 1 + 2*size_half;
+    afWeights = new RealNum [table_size];
+  }
+
+  Filter1D() {
+    size = -1;
+    afWeights = NULL;
+  }
+
+  Filter1D(Integer size_half) {
+    Resize(size_half);
+  }
+
+  ~Filter1D() {
+    delete [] afWeights;
+  }
 
   void Normalize() {
     // Make sure the sum of the filter weights is 1
@@ -100,24 +120,6 @@ public:
       afWeights[ix+size] /= total;
   }
 
-  Filter1D::Resize(Integer size_half) {
-    size = size_half;
-    table_size = 1 + 2*size_half;
-    if (afWeights)
-      del [] afWeights;
-    afWeights = new RealNum [table_size];
-  }
-  Filter1D() {
-    size = -1;
-    table_size = -1;
-    afWeights = NULL;
-  }
-  Filter1D(Integer size_half) {
-    Resize(size_half);
-  }
-  ~Filter1D() {
-    del [] afWeights;
-  }
 }; // class Filter1D
 
 

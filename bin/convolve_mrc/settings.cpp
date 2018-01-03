@@ -37,17 +37,15 @@ Settings::Settings() {
   width_b[0] = 15.0; // b_x = 15.0  gaussian width in x direction
   width_b[1] = 15.0; // b_y = 15.0  gaussian width in y direction
   width_b[2] = -1.0; // b_z = -1.0  gaussian width in z direction (<0 disables)
-  exponent_m = 2.0;  // exponent in generalized Gaussian formula (width a)
-  exponent_n = 2.0;  // exponent in generalized Gaussian formula (width b)
+  m_exp = 2.0;       // exponent in generalized Gaussian formula (width a)
+  n_exp = 2.0;       // exponent in generalized Gaussian formula (width b)
 
   filter_window_size[0] = -1; // width of the filter used (in voxels)
   filter_window_size[1] = -1; // (This is the size of the domain of the function
   filter_window_size[2] = -1; //  which will be convolved with the image.
                               //  "-1" means unspecified.)
 
-  window_cutoff_ratio[0] = 3.0;
-  window_cutoff_ratio[1] = 3.0;
-  window_cutoff_ratio[2] = 3.0;
+  window_cutoff_ratio = 3.0;
                              //By default, when averaging/filtering consider
                              // nearby voxels up to a distance of 3.0*sigma away
                              // Throw away all pixels further than this distance
@@ -382,38 +380,11 @@ Settings::ParseArgs(vector<string>& vArgs)
       if ((i+3 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
         throw "Error: The " + vArgs[i] + 
           " argument must be followed by a number.\n";
-      window_cutoff_ratio[0] = stof(vArgs[i+1]);
-      window_cutoff_ratio[1] = window_cutoff_ratio[0];
-      window_cutoff_ratio[2] = window_cutoff_ratio[0];
-      //window_cutoff_ratio_exp[0] = exp(-pow(window_cutoff_ratio[0],
-      //                                      exponent_n));
-      //window_cutoff_ratio_exp[1] = exp(-pow(window_cutoff_ratio[1],
-      //                                      exponent_n));
-      //window_cutoff_ratio_exp[2] = exp(-pow(window_cutoff_ratio[2],
-      //                                      exponent_n));
+      window_cutoff_ratio = stof(vArgs[i+1]);
+      //window_cutoff_ratio_exp = exp(-pow(window_cutoff_ratio,
+      //                                   n_exp));
       num_arguments_deleted = 2;
     } // if (vArgs[i] == "-cutoff")
-
-
-    else if (vArgs[i] == "-cutoff-aniso")
-    {
-      if ((i+3 >= vArgs.size()) ||
-          (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
-          (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
-          (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a number.\n";
-      window_cutoff_ratio[0] = stof(vArgs[i+1]);
-      window_cutoff_ratio[1] = stof(vArgs[i+2]);
-      window_cutoff_ratio[2] = stof(vArgs[i+3]);
-      //window_cutoff_ratio_exp[0] = exp(-pow(window_cutoff_ratio[0],
-      //                                      exponent_n));
-      //window_cutoff_ratio_exp[1] = exp(-pow(window_cutoff_ratio[1],
-      //                                      exponent_n));
-      //window_cutoff_ratio_exp[2] = exp(-pow(window_cutoff_ratio[2],
-      //                                      exponent_n));
-      num_arguments_deleted = 4;
-    } // if (vArgs[i] == "-cutoff-aniso")
 
 
     //else if (vArgs[i] == "-cutoff-dog")
@@ -422,7 +393,7 @@ Settings::ParseArgs(vector<string>& vArgs)
     //    throw "Error: The " + vArgs[i] + 
     //      " argument must be followed by a number.\n";
     //  window_cutoff_ratio_dog = stof(vArgs[i+1]);
-    //  //window_cutoff_ratio_dog = exp(-pow(window_sigmma_dog, exponent_n));
+    //  //window_cutoff_ratio_dog = exp(-pow(window_sigmma_dog, n_exp));
     //  num_arguments_deleted = 2;
     //} // if (vArgs[i] == "-cutoff-dog")
 
@@ -447,8 +418,8 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-'))
         throw "Error: The " + vArgs[i] + 
           " argument must be followed by two positive numbers.\n";
-      exponent_m = stof(vArgs[i+1]);
-      exponent_n = stof(vArgs[i+2]);
+      m_exp = stof(vArgs[i+1]);
+      n_exp = stof(vArgs[i+2]);
       exponents_set_by_user = true;
       num_arguments_deleted = 3;
     } //if (vArgs[i] == "-dog-exponents")
@@ -461,8 +432,8 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
         throw "Error: The " + vArgs[i] + 
           " argument must be followed by two positive numbers.\n";
-      exponent_m = stof(vArgs[i+1]);
-      exponent_n = exponent_m;
+      m_exp = stof(vArgs[i+1]);
+      n_exp = m_exp;
       exponents_set_by_user = true;
       num_arguments_deleted = 2;
     } //if (vArgs[i] == "-gauss-exponent")
@@ -600,15 +571,15 @@ Settings::ParseArgs(vector<string>& vArgs)
     width_b[0] = log_width[0] * (1.0 + 0.5*log_delta_t_over_t);
     width_b[1] = log_width[1] * (1.0 + 0.5*log_delta_t_over_t);
     width_b[2] = log_width[2] * (1.0 + 0.5*log_delta_t_over_t);
-    exponent_m = 2.0;
-    exponent_n = 2.0;
+    m_exp = 2.0;
+    n_exp = 2.0;
     filter_type = DOG_FAST;
   }
 
   // ----------
   if ((filter_type == DOG) &&
-      (exponent_m == 2.0) &&
-      (exponent_n == 2.0)) {
+      (m_exp == 2.0) &&
+      (n_exp == 2.0)) {
 
     filter_type = DOG_FAST;
 
@@ -631,7 +602,7 @@ Settings::ParseArgs(vector<string>& vArgs)
           width_b[d] *= sqrt(2.0);
       }
     }
-  } //if ((filter_type == DOG) && (exponent_m == 2.0) && (exponent_m == 2.0))
+  } //if ((filter_type == DOG) && (m_exp == 2.0) && (m_exp == 2.0))
 
 
   // ----------
@@ -642,7 +613,9 @@ Settings::ParseArgs(vector<string>& vArgs)
   // as multiples of the widths of the gaussians (a and b parameters)
   for (int d=0; d < 3; d++) {
     if (filter_window_size[d] < 0.0)
-      filter_window_size[d] = MAX(width_a[d], width_b[d]) * window_cutoff_ratio[d];
+      filter_window_size[d] = (MAX(width_a[d], width_b[d])
+                               *
+                               window_cutoff_ratio);
       //(NOTE: These units are still in nm (physical units), not voxels.
       // We still need to convert them into voxels. When we do we will use the 
       // "ceil()" function to make sure all of the windows have integer size.)

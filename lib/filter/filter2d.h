@@ -110,20 +110,40 @@ public:
   } //Filter2D::Apply()
 
 
-  Filter2D(Integer size_half[2]) {
+  void Resize(Integer size_half) {
     Integer table_size[2];
+    if (af && aafWeights) {
+      for(Integer d=0; d < 2; d++)
+        table_size[d] = 1 + 2*size[d];
+      Dealloc2D(table_size, &af, &aafWeights);
+    }
     for(Integer d=0; d < 2; d++) {
       size[d] = size_half[d];
       table_size[d] = 1 + 2*size_half[d];
     }
     Alloc2D(table_size, &af, &aafWeights);
   }
+
+  Filter2D(Integer size_half[2]) {
+    af = NULL;
+    aafWeights = NULL;
+    Resize(size_half);
+  }
+
+  Filter2D() {
+    size[0] = -1;
+    size[1] = -1;
+    af = NULL;
+    aafWeights = NULL;
+  }
+
   ~Filter2D() {
     Integer table_size[2];
     for(Integer d=0; d < 2; d++)
       table_size[d] = 1 + 2*size[d];
     Dealloc2D(table_size, &af, &aafWeights);
   }
+
   void Normalize() {
     // Make sure the sum of the filter weights is 1
     RealNum total = 0.0;

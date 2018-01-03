@@ -133,20 +133,41 @@ public:
   } //Filter3D::Apply()
 
 
-  Filter3D(Integer size_half[3]) {
+  void Resize(Integer size_half) {
     Integer table_size[3];
+    if (af && aaafWeights) {
+      for(Integer d=0; d < 3; d++)
+        table_size[d] = 1 + 2*size[d];
+      Dealloc3D(table_size, &af, &aaafWeights);
+    }
     for(Integer d=0; d < 3; d++) {
       size[d] = size_half[d];
       table_size[d] = 1 + 2*size_half[d];
     }
     Alloc3D(table_size, &af, &aaafWeights);
   }
+
+  Filter3D(Integer size_half[3]) {
+    af = NULL;
+    aaafWeights = NULL;
+    Resize(size_half);
+  }
+
+  Filter3D() {
+    size[0] = -1;
+    size[1] = -1;
+    size[2] = -1;
+    af = NULL;
+    aaafWeights = NULL;
+  }
+
   ~Filter3D() {
     Integer table_size[3];
     for(Integer d=0; d < 3; d++)
       table_size[d] = 1 + 2*size[d];
     Dealloc3D(table_size, &af, &aaafWeights);
   }
+
   void Normalize() {
     // Make sure the sum of the filter weights is 1
     RealNum total = 0.0;
