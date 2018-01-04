@@ -2,6 +2,7 @@
 //#include <iostream>
 using namespace std;
 
+#include <err_report.h>
 #include "settings.h"
 
 
@@ -21,7 +22,7 @@ Settings::Settings() {
   use_mask_out = false;
   voxel_width = 0.0;    // How many nm per voxel? (if 0 then read from tomogram)
   voxel_width_divide_by_10 = false;
-  filter_type = GAUSS;
+  filter_type = NONE;
 
   // The code is a little bit confusing because I tried to cram as much
   // functionality into the smallest number of parameters possible:
@@ -106,8 +107,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     if (vArgs[i] == "-in")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a file name.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a file name.\n");
       in_file_name = vArgs[i+1];
 
       num_arguments_deleted = 2;
@@ -118,8 +119,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-out")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a file name.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a file name.\n");
       out_file_name = vArgs[i+1];
 
       num_arguments_deleted = 2;
@@ -130,8 +131,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-mask")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a file name.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a file name.\n");
       mask_file_name = vArgs[i+1];
       num_arguments_deleted = 2;
     } // if (vArgs[i] == "-mask")
@@ -140,8 +141,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-mask-select")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by an integer.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by an integer.\n");
       use_mask_select = true;
       mask_select = stoi(vArgs[i+1]);
       num_arguments_deleted = 2;
@@ -151,8 +152,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-mask-out")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a number.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a number.\n");
       use_mask_out = true;
       mask_out = stof(vArgs[i+1]);
       num_arguments_deleted = 2;
@@ -162,8 +163,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-w")
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by voxel width.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by voxel width.\n");
       voxel_width = stof(vArgs[i+1]);
       num_arguments_deleted = 2;
     } // if (vArgs[i] == "-mask")
@@ -191,11 +192,11 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
           (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers:\n"
-                     " a_xy  b_xy  a_z\n"
-                     " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
-                     "  followed by the Gaussian width in the Z direction.)\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers:\n"
+                       " a_xy  b_xy  a_z\n"
+                       " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
+                       "  followed by the Gaussian width in the Z direction.)\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = stof(vArgs[i+2]);
       width_a[2] = stof(vArgs[i+3]);
@@ -210,11 +211,11 @@ Settings::ParseArgs(vector<string>& vArgs)
     {
       if ((i+1 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers:\n"
-                     " a_xy  b_xy  a_z\n"
-                     " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
-                     "  followed by the Gaussian width in the Z direction.)\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers:\n"
+                       " a_xy  b_xy  a_z\n"
+                       " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
+                       "  followed by the Gaussian width in the Z direction.)\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = width_a[0];
       width_a[2] = width_a[0];
@@ -235,8 +236,8 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+4] == "") || (vArgs[i+4][0] == '-') ||
           (vArgs[i+5] == "") || (vArgs[i+5][0] == '-') ||
           (vArgs[i+6] == "") || (vArgs[i+6][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers.\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers.\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = stof(vArgs[i+2]);
       width_a[2] = stof(vArgs[i+3]);
@@ -244,8 +245,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_b[1] = stof(vArgs[i+5]);
       width_b[2] = stof(vArgs[i+6]);
       //if (width_b[0] <= width_a[0])
-      //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
-      //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
+      //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
+      //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
       filter_type = DOGGEN;
       num_arguments_deleted = 7;
     } //if (vArgs[i] == "-dog")
@@ -256,8 +257,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       if ((i+2 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers.\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers.\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = width_a[0];
       width_a[2] = width_a[0];
@@ -265,8 +266,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_b[1] = width_b[0];
       width_b[2] = width_b[0];
       //if (width_b[0] <= width_a[0])
-      //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
-      //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
+      //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
+      //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
       filter_type = DOGGEN;
       num_arguments_deleted = 3;
     } //if (vArgs[i] == "-dog")
@@ -279,11 +280,11 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+3] == "") || (vArgs[i+3][0] == '-') ||
           (vArgs[i+4] == "") || (vArgs[i+4][0] == '-') ||
           (vArgs[i+5] == "") || (vArgs[i+5][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 5 positive numbers:\n"
-                     " a_x  a_y  b_x  b_y  a_z\n"
-                     " (I.E., the \"A\" and \"-B\" Gaussian widths in X and Y directions,\n"
-                     "  followed by the Gaussian width in the Z direction.)\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 5 positive numbers:\n"
+                       " a_x  a_y  b_x  b_y  a_z\n"
+                       " (I.E., the \"A\" and \"-B\" Gaussian widths in X and Y directions,\n"
+                       "  followed by the Gaussian width in the Z direction.)\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = stof(vArgs[i+2]);
       width_b[0] = stof(vArgs[i+3]);
@@ -296,8 +297,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_a[2] = stof(vArgs[i+5]);
       width_b[2] = -1.0;   //(This disables the second (negative) Gaussian)
       //if (width_b[0] <= width_a[0])
-      //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
-      //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
+      //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
+      //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
       filter_type = DOGXYGEN;
       num_arguments_deleted = 6;
     } //if (vArgs[i] == "-dogxy-aniso")
@@ -309,11 +310,11 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
           (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers:\n"
-                     " a_xy  b_xy  a_z\n"
-                     " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
-                     "  followed by the Gaussian width in the Z direction.)\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers:\n"
+                       " a_xy  b_xy  a_z\n"
+                       " (I.E., the \"A\" and \"-B\" Gaussian widths in the XY plane,\n"
+                       "  followed by the Gaussian width in the Z direction.)\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = width_a[0];
       width_b[0] = stof(vArgs[i+2]);
@@ -326,8 +327,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_a[2] = stof(vArgs[i+3]);
       width_b[2] = -1.0;   //(This disables the second (negative) Gaussian)
       //if (width_b[0] <= width_a[0])
-      //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
-      //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
+      //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
+      //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
       filter_type = DOGXYGEN;
       num_arguments_deleted = 4;
     } //if (vArgs[i] == "-dogxy")
@@ -339,8 +340,8 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-') ||
           (vArgs[i+3] == "") || (vArgs[i+3][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers.\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers.\n");
       log_width[0] = stof(vArgs[i+1]);
       log_width[1] = stof(vArgs[i+2]);
       log_width[2] = stof(vArgs[i+3]);
@@ -356,8 +357,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     {
       if ((i+1 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 3 positive numbers.\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 3 positive numbers.\n");
       log_width[0] = stof(vArgs[i+1]);
       log_width[1] = log_width[0];
       log_width[2] = log_width[0];
@@ -369,8 +370,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if ((vArgs[i] == "-blob-delta") || (vArgs[i] == "-log-delta")) {
       if ((i+1 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw string("Error: The " + vArgs[i] + 
-                     " argument must be followed by 1 positive number.\n");
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 1 positive number.\n");
       log_delta_t_over_t = stof(vArgs[i+1]);
     }
 
@@ -378,8 +379,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-cutoff")
     {
       if ((i+3 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by a number.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a number.\n");
       window_cutoff_ratio = stof(vArgs[i+1]);
       //window_cutoff_ratio_exp = exp(-pow(window_cutoff_ratio,
       //                                   n_exp));
@@ -390,8 +391,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     //else if (vArgs[i] == "-cutoff-dog")
     //{
     //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw "Error: The " + vArgs[i] + 
-    //      " argument must be followed by a number.\n";
+    //    throw InputErr("Error: The " + vArgs[i] + 
+    //                   " argument must be followed by a number.\n");
     //  window_cutoff_ratio_dog = stof(vArgs[i+1]);
     //  //window_cutoff_ratio_dog = exp(-pow(window_sigmma_dog, n_exp));
     //  num_arguments_deleted = 2;
@@ -401,8 +402,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     //else if (vArgs[i] == "-cutoff-gauss")
     //{
     //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw "Error: The " + vArgs[i] + 
-    //      " argument must be followed by a number.\n";
+    //    throw InputErr("Error: The " + vArgs[i] + 
+    //                   " argument must be followed by a number.\n");
     //  window_cutoff_ratio_gauss = stof(vArgs[i+1]);
     //  //window_cutoff_ratio_gauss_exp = exp(-0.5 * window_sigma_gauss *
     //  //                                           window_sigma_gauss);
@@ -416,8 +417,8 @@ Settings::ParseArgs(vector<string>& vArgs)
       if ((i+2 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
           (vArgs[i+2] == "") || (vArgs[i+2][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by two positive numbers.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by two positive numbers.\n");
       m_exp = stof(vArgs[i+1]);
       n_exp = stof(vArgs[i+2]);
       exponents_set_by_user = true;
@@ -430,8 +431,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     {
       if ((i+1 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by two positive numbers.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by two positive numbers.\n");
       m_exp = stof(vArgs[i+1]);
       n_exp = m_exp;
       exponents_set_by_user = true;
@@ -441,8 +442,8 @@ Settings::ParseArgs(vector<string>& vArgs)
 
     else if (vArgs[i] == "-window") {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by either 1 or 3 positive integers.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by either 1 or 3 positive integers.\n");
       filter_halfwidth[0] = stoi(vArgs[i+1]);
       num_arguments_deleted = 2;
       if ((i+4 >= vArgs.size()) && 
@@ -461,8 +462,8 @@ Settings::ParseArgs(vector<string>& vArgs)
 
     else if (vArgs[i] == "-thresh") {
       if (i+2 >= vArgs.size())
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by 1 number.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 1 number.\n");
       use_thresholds = true;
       use_dual_thresholds = false;
       out_threshold_01_a = stof(vArgs[i+1]);
@@ -472,8 +473,8 @@ Settings::ParseArgs(vector<string>& vArgs)
 
     else if (vArgs[i] == "-thresh2") {
       if (i+3 >= vArgs.size())
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by 2 numbers.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 2 numbers.\n");
       use_thresholds = true;
       use_dual_thresholds = false;
       out_threshold_01_a = stof(vArgs[i+1]);
@@ -483,8 +484,8 @@ Settings::ParseArgs(vector<string>& vArgs)
 
     else if (vArgs[i] == "-thresh4") {
       if (i+5 >= vArgs.size())
-        throw "Error: The " + vArgs[i] + 
-          " argument must be followed by 4 numbers.\n";
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by 4 numbers.\n");
       use_thresholds = true;
       use_dual_thresholds = true;
       out_threshold_01_a = stof(vArgs[i+1]);
@@ -497,8 +498,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     // NOT USED YET:
     //else if (vArgs[i] == "-xwedge") {
     //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw "Error: The " + vArgs[i] + 
-    //      " argument must be followed by 1 or 3 positive numbers.\n";
+    //    throw InputErr("Error: The " + vArgs[i] + 
+    //                   " argument must be followed by 1 or 3 positive numbers.\n");
     //  missing_wedge_min[0] = stof(vArgs[i+1]);
     //  num_arguments_deleted = 2;
     //  if ((i+4 >= vArgs.size()) && 
@@ -514,8 +515,8 @@ Settings::ParseArgs(vector<string>& vArgs)
     //
     //else if ((vArgs[i] == "-ywedge") || (vArgs[i] == "-wedge")) {
     //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw "Error: The " + vArgs[i] + 
-    //      " argument must be followed by 1 or 3 positive numbers.\n";
+    //    throw InputErr("Error: The " + vArgs[i] + 
+    //                   " argument must be followed by 1 or 3 positive numbers.\n");
     //  missing_wedge_min[1] = stof(vArgs[i+1]);
     //  num_arguments_deleted = 2;
     //  if ((i+4 >= vArgs.size()) && 
@@ -543,17 +544,22 @@ Settings::ParseArgs(vector<string>& vArgs)
   } // loop over arguments "for (int i=1; i < vArgs.size(); ++i)"
 
 
+  // ----------
+  if (filter_type == NONE)
+    throw InputErr("Error: You must specify the kind of filter you want to use\n"
+                   "       (Ie., the function you wish to convolve with your image, for example\n"
+                   "        by using the \"-gauss\",\"-dog\",\"-log\",\"-file\",... arguments)\n");
 
   // ----------
   if (in_file_name.size() == 0) {
-    throw "Error: You must specify the name of the tomogram you want to read\n"
-          "       using the \"-in SOURCE_FILE.mrc\" argument\n"
-          "       (\".rec\" files are also supported.)\n";
+    throw InputErr("Error: You must specify the name of the tomogram you want to read\n"
+                   "       using the \"-in SOURCE_FILE.mrc\" argument\n"
+                   "       (\".rec\" files are also supported.)\n");
   }
   if (out_file_name.size() == 0) {
-    throw "Error: You must specify the name of the tomogram you want to read\n"
-          "       using the \"-out DESTINATION_FILE.mrc\" argument\n"
-          "       (\".rec\" files are also supported.)\n";
+    throw InputErr("Error: You must specify the name of the tomogram you want to read\n"
+                   "       using the \"-out DESTINATION_FILE.mrc\" argument\n"
+                   "       (\".rec\" files are also supported.)\n");
   }
 
   if (filter_type == LOG) {

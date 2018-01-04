@@ -3,7 +3,6 @@ SHELL = /bin/sh
 INSTALL_PATH = /tmp
 
 #The "SRC_DIRS" directories contain source code for different binaries
-#including the "minrms" binary.
 #This makefile constructs each binary from the code in these directories
 #and the libraries in the "LIB_DIRS" directories.
 SRC_DIRS = \

@@ -81,6 +81,7 @@ class Settings {
   float n_exp;         //"n" parameter in formula above
 
   typedef enum eFilterType {
+    NONE,    //(the user has not selected a filter)
     GAUSS,   //3D Gaussian filter
     DOG,     //3D difference of Gaussians (fast, separable)
     LOG,     //3D Laplacian-of-Gaussian (fast, separable)

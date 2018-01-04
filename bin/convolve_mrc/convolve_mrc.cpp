@@ -6,6 +6,7 @@
 #include <string>
 //#include <fftw3.h>  not needed yet
 using namespace std;
+#include <err_report.h>
 #include <alloc2d.h>
 #include <alloc3d.h>
 #include <filter1d.h>
@@ -13,6 +14,7 @@ using namespace std;
 #include <filter3d.h>
 #include <threshold.h>
 #include <mrc_simple.h>
+#include <err_report.h>
 #include "settings.h"
 
 
@@ -322,10 +324,10 @@ int main(int argc, char **argv) {
 
     // Read the input tomogram
     cerr << "Reading tomogram \""<<settings.in_file_name<<"\"" << endl;
-    MrcSimple tomo;
-    tomo.Read(settings.in_file_name, false);
-    // (Note: You can also use "tomo.Read(cin);" or "cin >> tomo;")
-    tomo.PrintStats(cerr);      //Optional (display the tomogram size & format)
+    MrcSimple tomo_in;
+    tomo_in.Read(settings.in_file_name, false);
+    // (Note: You can also use "tomo_in.Read(cin);" or "cin >> tomo;")
+    tomo_in.PrintStats(cerr);      //Optional (display the tomogram size & format)
 
     // ---- mask ----
 
@@ -334,10 +336,10 @@ int main(int argc, char **argv) {
     if (settings.mask_file_name != "") {
       cerr << "Reading mask \""<<settings.mask_file_name<<"\"" << endl;
       mask.Read(settings.mask_file_name, false);
-      if ((mask.mrc_header.nvoxels[0] != tomo.mrc_header.nvoxels[0]) ||
-          (mask.mrc_header.nvoxels[1] != tomo.mrc_header.nvoxels[1]) ||
-          (mask.mrc_header.nvoxels[2] != tomo.mrc_header.nvoxels[2]))
-        throw string("Error: The size of the mask does not match the size of the tomogram.\n");
+      if ((mask.mrc_header.nvoxels[0] != tomo_in.mrc_header.nvoxels[0]) ||
+          (mask.mrc_header.nvoxels[1] != tomo_in.mrc_header.nvoxels[1]) ||
+          (mask.mrc_header.nvoxels[2] != tomo_in.mrc_header.nvoxels[2]))
+        throw InputErr("Error: The size of the mask does not match the size of the tomogram.\n");
       // The mask should be 1 everywhere we want to consider, and 0 elsewhere.
       if (settings.use_mask_select) {
         for (int iz=0; iz<mask.mrc_header.nvoxels[2]; iz++)
@@ -351,12 +353,12 @@ int main(int argc, char **argv) {
     }
 
     if (settings.in_rescale01)
-      tomo.Rescale01(mask.aaafDensity);
+      tomo_in.Rescale01(mask.aaafDensity);
 
     // ---- make an array that will store the new tomogram we will create ----
 
     cerr << "allocating space for new tomogram..." << endl;
-    MrcSimple out_tomo = tomo; //this will take care of allocating the array
+    MrcSimple tomo_out = tomo_in; //this will take care of allocating the array
 
     float voxel_width[3] = {1.0, 1.0, 1.0};
 
@@ -369,9 +371,9 @@ int main(int argc, char **argv) {
     }
     else {
       // Otherwise, infer it from the header of the MRC file
-      voxel_width[0] = tomo.mrc_header.cellA[0]/tomo.mrc_header.nvoxels[0];
-      voxel_width[1] = tomo.mrc_header.cellA[1]/tomo.mrc_header.nvoxels[1];
-      voxel_width[2] = tomo.mrc_header.cellA[2]/tomo.mrc_header.nvoxels[2];
+      voxel_width[0] = tomo_in.mrc_header.cellA[0]/tomo_in.mrc_header.nvoxels[0];
+      voxel_width[1] = tomo_in.mrc_header.cellA[1]/tomo_in.mrc_header.nvoxels[1];
+      voxel_width[2] = tomo_in.mrc_header.cellA[2]/tomo_in.mrc_header.nvoxels[2];
       if (settings.voxel_width_divide_by_10) {
         voxel_width[0] *= 0.1;
         voxel_width[1] *= 0.1;
@@ -386,14 +388,14 @@ int main(int argc, char **argv) {
     if ((voxel_width[0] <= 0.0) ||
         (voxel_width[1] <= 0.0) ||
         (voxel_width[2] <= 0.0))
-      throw string("Error in tomogram header: Invalid voxel width(s).\n"
-                   "Use the -w argument to specify the voxel width in nm.");
+      throw InputErr("Error in tomogram header: Invalid voxel width(s).\n"
+                     "Use the -w argument to specify the voxel width in nm.");
 
     if (abs((voxel_width[0] - voxel_width[1])
             /
             (0.5*(voxel_width[0] + voxel_width[1]))) > 0.0001)
-      throw string("Error in tomogram header: Unequal voxel widths in the x and y directions.\n"
-                   "Use the -w argument to specify the voxel width in nm.");
+      throw InputErr("Error in tomogram header: Unequal voxel widths in the x and y directions.\n"
+                     "Use the -w argument to specify the voxel width in nm.");
     for (int d=0; d<3; d++) {
       settings.width_a[d] /= voxel_width[d];
       settings.width_b[d] /= voxel_width[d];
@@ -411,16 +413,24 @@ int main(int argc, char **argv) {
          << settings.filter_halfwidth[2] << ")"
          << " ..." << endl;
 
- 
-    if (settings.filter_type = Settings::GAUSS) {
+    if (settings.filter_type == Settings::NONE) {
+      // Not needed:
+      //for (int iz = 0; iz < size[2]; iz++)
+      //  for (int iy = 0; iy < size[1]; iy++)
+      //    for (int ix = 0; ix < size[0]; ix++)
+      //      tomo_out.aaafDensity[iz][iy][ix]=tomo_in.aaafDensity[iz][iy][ix];
+      // (We have copied the contents from tomo_in into tomo_out already.)
+    } 
+
+    else if (settings.filter_type == Settings::GAUSS) {
 
       float A; // let the user know what A coefficient was used
 
       A = ApplyGauss3D(settings.filter_halfwidth,
                        settings.width_a,
-                       tomo.mrc_header.nvoxels,
-                       tomo.aaafDensity,
-                       out_tomo.aaafDensity,
+                       tomo_in.mrc_header.nvoxels,
+                       tomo_in.aaafDensity,
+                       tomo_out.aaafDensity,
                        mask.aaafDensity);
                        //true);
 
@@ -438,14 +448,14 @@ int main(int argc, char **argv) {
           " You can plot this function in the X,Y, or Z directions using:\n"
           " draw_filter_1D.py -gauss  A  a\n";
         
-    } //if (settings.filter_type = Settings::GAUSS)
+    } // if (settings.filter_type = Settings::GAUSS)
 
-    if (settings.filter_type = Settings::DOG) {
+    else if (settings.filter_type = Settings::DOG) {
 
       float ***aaafTemp; //temporary array to store partially processed tomogram
       float *afTemp;     //temporary array to store partially processed tomogram
-      int   *size = tomo.mrc_header.nvoxels;
-      Alloc3D(tomo.mrc_header.nvoxels,
+      int   *size = tomo_in.mrc_header.nvoxels;
+      Alloc3D(tomo_in.mrc_header.nvoxels,
               &afTemp,
               &aaafTemp);
 
@@ -454,17 +464,17 @@ int main(int argc, char **argv) {
       // Convolve the original source with the 1st Gaussian
       A = ApplyGauss3D(settings.filter_halfwidth,
                        settings.width_a,
-                       tomo.mrc_header.nvoxels,
-                       tomo.aaafDensity,
-                       out_tomo.aaafDensity,
+                       tomo_in.mrc_header.nvoxels,
+                       tomo_in.aaafDensity,
+                       tomo_out.aaafDensity,
                        mask.aaafDensity);
                        //true);
 
       // Convolve the original source with the 2nd Gaussian
       B = ApplyGauss3D(settings.filter_halfwidth,
                        settings.width_b,
-                       tomo.mrc_header.nvoxels,
-                       tomo.aaafDensity,
+                       tomo_in.mrc_header.nvoxels,
+                       tomo_in.aaafDensity,
                        aaafTemp,
                        mask.aaafDensity);
                        //true);
@@ -492,10 +502,10 @@ int main(int argc, char **argv) {
       for (int iz = 0; iz < size[2]; iz++)
         for (int iy = 0; iy < size[1]; iy++)
           for (int ix = 0; ix < size[0]; ix++)
-            out_tomo.aaafDensity[iz][iy][ix] -= aaafTemp[iz][iy][ix];
+            tomo_out.aaafDensity[iz][iy][ix] -= aaafTemp[iz][iy][ix];
 
       // Deallocate the temporary array
-      Dealloc3D(tomo.mrc_header.nvoxels,
+      Dealloc3D(tomo_in.mrc_header.nvoxels,
                 &afTemp,
                 &aaafTemp);
 
@@ -516,13 +526,13 @@ int main(int argc, char **argv) {
         if (h < cutoff)
           cutoff = h;
       }
-      throw string("Error: The general 3-D DOG filter (supporting exponents m,n!=2)\n"
-                   "       has not been implemented yet.\n"
-                   "      (However implementing should be trivial to do.\n"
-                   "       Edit the code to define a functions \"GenFilterGenDog3D()\" and\n"
-                   "       GenFilterGenGause3D This should be easy. They will be nearly identical\n"
-                   "       to the functions \"GenFilterGenDog2D()\" and \"GenFilterGenGauss2D()\")\n"
-                   "For now, you can use an ordinary 3-D DOG filter with default exponents m=n=2.\n");
+      throw InputErr("Error: The general 3-D DOG filter (supporting exponents m,n!=2)\n"
+                     "       has not been implemented yet.\n"
+                     "      (However implementing should be trivial to do.\n"
+                     "       Edit the code to define a functions \"GenFilterGenDog3D()\" and\n"
+                     "       GenFilterGenGause3D This should be easy. They will be nearly identical\n"
+                     "       to the functions \"GenFilterGenDog2D()\" and \"GenFilterGenGauss2D()\")\n"
+                     "For now, you can use an ordinary 3-D DOG filter with default exponents m=n=2.\n");
 
       Filter3D<float, int> filter(settings.filter_halfwidth);
       //GenFilterGenDog3D(filter.halfwidth,
@@ -621,32 +631,32 @@ int main(int argc, char **argv) {
       // Precompute the effect of the filter in the Z direction.
 
       // Create temporary 1-D arrays to perform the filter in the Z-direction:
-      float *afDensityZorig = new float [tomo.mrc_header.nvoxels[2]];
-      float *afDensityZnew  = new float [tomo.mrc_header.nvoxels[2]];
+      float *afDensityZorig = new float [tomo_in.mrc_header.nvoxels[2]];
+      float *afDensityZnew  = new float [tomo_in.mrc_header.nvoxels[2]];
       float *afMask         = NULL;
       if (mask.aaafDensity)
-        afMask       = new float [tomo.mrc_header.nvoxels[2]];
+        afMask       = new float [tomo_in.mrc_header.nvoxels[2]];
 
       // Then apply the filter in the Z direction
       // (and store the filtered 3-D image in the original tomogram array)
-      for (int ix = 0; ix < tomo.mrc_header.nvoxels[0]; ix++) {
-        for (int iy = 0; iy < tomo.mrc_header.nvoxels[1]; iy++) {
-          for (int iz = 0; iz < tomo.mrc_header.nvoxels[2]; iz++) {
-            afDensityZorig[iz] = tomo.aaafDensity[iz][iy][ix];
+      for (int ix = 0; ix < tomo_in.mrc_header.nvoxels[0]; ix++) {
+        for (int iy = 0; iy < tomo_in.mrc_header.nvoxels[1]; iy++) {
+          for (int iz = 0; iz < tomo_in.mrc_header.nvoxels[2]; iz++) {
+            afDensityZorig[iz] = tomo_in.aaafDensity[iz][iy][ix];
             if (afMask)
               afMask[iz] = mask.aaafDensity[iz][iy][ix];
           }
-          filterZ.Apply(tomo.mrc_header.nvoxels[2],
+          filterZ.Apply(tomo_in.mrc_header.nvoxels[2],
                         afDensityZorig,
                         afDensityZnew,
                         afMask);
                         //true);
           //It would be wasteful to allocate a temporary array to store this
           //Instead store the result of the convolution in the original array:
-          for (int iz = 0; iz < tomo.mrc_header.nvoxels[2]; iz++)
-            tomo.aaafDensity[iz][iy][ix] = afDensityZnew[iz];
-        } //for (int iy = 0; iy < tomo.mrc_header.nvoxels[1]; iy++) {
-      } // for (int ix = 0; ix < tomo.mrc_header.nvoxels[0]; ix++) {
+          for (int iz = 0; iz < tomo_in.mrc_header.nvoxels[2]; iz++)
+            tomo_in.aaafDensity[iz][iy][ix] = afDensityZnew[iz];
+        } //for (int iy = 0; iy < tomo_in.mrc_header.nvoxels[1]; iy++) {
+      } // for (int ix = 0; ix < tomo_in.mrc_header.nvoxels[0]; ix++) {
       delete [] afDensityZorig;
       delete [] afDensityZnew;
       if (afMask)
@@ -654,15 +664,15 @@ int main(int argc, char **argv) {
 
       // Now apply the filter in the X and Y directions:
       cerr << "  progress: processing plane#" << endl;
-      for (int iz = 0; iz < tomo.mrc_header.nvoxels[2]; iz++) {
-        cerr << "  " << iz+1 << " / " << tomo.mrc_header.nvoxels[2] << "\n";
+      for (int iz = 0; iz < tomo_in.mrc_header.nvoxels[2]; iz++) {
+        cerr << "  " << iz+1 << " / " << tomo_in.mrc_header.nvoxels[2] << "\n";
         float **aafMaskXY = NULL;
         if (mask.aaafDensity)
           aafMaskXY = mask.aaafDensity[iz];
-        filterXY.Apply(tomo.mrc_header.nvoxels,
-                       tomo.aaafDensity[iz],
-                       out_tomo.aaafDensity[iz],
-                       out_tomo.aaafDensity[iz]);
+        filterXY.Apply(tomo_in.mrc_header.nvoxels,
+                       tomo_in.aaafDensity[iz],
+                       tomo_out.aaafDensity[iz],
+                       tomo_out.aaafDensity[iz]);
                        //aafMaskXY);
                        //true);
       }
@@ -676,7 +686,7 @@ int main(int argc, char **argv) {
     // --- Rescale so that the lowest, highest voxels have density 0 and 1? ---
 
     if (settings.in_rescale01)
-      out_tomo.Rescale01(mask.aaafDensity);
+      tomo_out.Rescale01(mask.aaafDensity);
 
 
 
@@ -688,17 +698,17 @@ int main(int argc, char **argv) {
 
       cerr << "thresholding..." << endl;
 
-      for (int iz=0; iz<out_tomo.mrc_header.nvoxels[2]; iz++) {
-        for (int iy=0; iy<out_tomo.mrc_header.nvoxels[1]; iy++) {
-          for (int ix=0; ix<out_tomo.mrc_header.nvoxels[0]; ix++) {
+      for (int iz=0; iz<tomo_out.mrc_header.nvoxels[2]; iz++) {
+        for (int iy=0; iy<tomo_out.mrc_header.nvoxels[1]; iy++) {
+          for (int ix=0; ix<tomo_out.mrc_header.nvoxels[0]; ix++) {
             if (! settings.use_dual_thresholds)
-              out_tomo.aaafDensity[iz][iy][ix] =
-                Threshold2(out_tomo.aaafDensity[iz][iy][ix],
+              tomo_out.aaafDensity[iz][iy][ix] =
+                Threshold2(tomo_out.aaafDensity[iz][iy][ix],
                            settings.out_threshold_01_a,
                            settings.out_threshold_01_b);
             else
-              out_tomo.aaafDensity[iz][iy][ix] =
-                Threshold4(out_tomo.aaafDensity[iz][iy][ix],
+              tomo_out.aaafDensity[iz][iy][ix] =
+                Threshold4(tomo_out.aaafDensity[iz][iy][ix],
                            settings.out_threshold_01_a,
                            settings.out_threshold_01_b,
                            settings.out_threshold_10_a,
@@ -715,14 +725,14 @@ int main(int argc, char **argv) {
         for (int iy=0; iy<mask.mrc_header.nvoxels[1]; iy++)
           for (int ix=0; ix<mask.mrc_header.nvoxels[0]; ix++)
             if (mask.aaafDensity[iz][iy][ix] == 0.0)
-              out_tomo.aaafDensity[iz][iy][ix] = settings.mask_out;
+              tomo_out.aaafDensity[iz][iy][ix] = settings.mask_out;
 
 
     // Write the file
     if (settings.out_file_name != "") {
       cerr << "writing tomogram (in float mode)" << endl;
-      out_tomo.Write(settings.out_file_name);
-      //(You can also use "out_tomo.Write(cout);" or "cout<<out_tomo;")
+      tomo_out.Write(settings.out_file_name);
+      //(You can also use "tomo_out.Write(cout);" or "cout<<tomo_out;")
     }
   }
 
