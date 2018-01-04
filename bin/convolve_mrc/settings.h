@@ -70,7 +70,7 @@ class Settings {
   bool use_mask_select;
   int mask_out;
   bool use_mask_out;
-  int filter_window_size[3];
+  int filter_halfwidth[3];
 
   float voxel_width; //width of each voxel in nm (assumed to be same for x,y,z)
   bool  voxel_width_divide_by_10 = false;
@@ -81,12 +81,12 @@ class Settings {
   float n_exp;         //"n" parameter in formula above
 
   typedef enum eFilterType {
-    GAUSS, //3D Gaussian filter
-    DOG,   //3D Difference-of-Gaussians filter (general)
-    DOGXY, //2D Difference-of-Gaussians (XY direction)
-           //and a 1D Gaussian filter (Z direction)
-    DOG_FAST, //3D difference of Gaussians (fast)
-    LOG    //3D Laplacian-of-Gaussian (fast)
+    GAUSS,   //3D Gaussian filter
+    DOG,     //3D difference of Gaussians (fast, separable)
+    LOG,     //3D Laplacian-of-Gaussian (fast, separable)
+    DOGGEN,  //3D Difference-of-Gaussians filter (general, arbitrary exponents)
+    DOGXYGEN //2D Difference-of-Gaussians (in XY direction, arbitrary exponents)
+             //and a 1D Gaussian filter (in the Z direction)
   } FilterType; 
   
   FilterType filter_type = GAUSS;

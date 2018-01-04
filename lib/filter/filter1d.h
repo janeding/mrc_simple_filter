@@ -11,16 +11,16 @@ template<class RealNum, class Integer>
 class Filter1D {
 public:
   RealNum *afWeights;
-  Integer size;
+  Integer halfwidth; //distance from the filter center to its edge, in pixels
 
   // Apply the filter to tomographic data in the "afSource" array
   // Save the results in the "afDest" array.  (A "mask" is optional.)
-  // All arrays are 1D and assumed to be the same size, given by size_source.
-  void Apply(Integer size_source,
-             RealNum **afSource,
-             RealNum **afDest,
-             RealNum **afMask = NULL,
-             bool precompute_mask_times_source = false) const
+  // All arrays are 1D and assumed to be the same size
+  void Apply(Integer const size_source,
+             RealNum *afSource,
+             RealNum *afDest,
+             RealNum const *afMask = NULL) const
+             //bool precompute_mask_times_source = true) const
   {
 
     // Apply the filter to the original tomogram data. (Store in afSource)
@@ -39,15 +39,17 @@ public:
     //     the area under the curve h(j)*mask(i-j)    (as a function of j)
     //     
 
-    if (afMask && precompute_mask_times_source) {
-      // The mask should be 1 everywhere we want to consider, and 0 elsewhere.
-      // Multiplying the density in the tomogram by the mask removes some of 
-      // the voxels from consideration later on when we do the filtering.
-      // (Later, we will adjust the weight of the average we compute when we
-      //  apply the filter in order to account for the voxels we deleted now.)
+    // The mask should be 1 everywhere we want to consider, and 0 elsewhere.
+    // Multiplying the density in the tomogram by the mask removes some of 
+    // the voxels from consideration later on when we do the filtering.
+    // (Later, we will adjust the weight of the average we compute when we
+    //  apply the filter in order to account for the voxels we deleted now.)
+    // Precomupting the mask product is faster but modifies the source image.
+
+    //if (afMask && precompute_mask_times_source)
+    if (afMask) 
       for (int ix=0; ix<size_source; ix++)
         afSource[ix] *= afMask[ix];
-    }
 
     for (Integer ix=0; ix<size_source; ix++) {
 
@@ -57,24 +59,24 @@ public:
       RealNum g = 0.0;
       RealNum denominator = 0.0;
 
-      for (Integer jx=-size; jx<=size; jx++) {
+      for (Integer jx=-halfwidth; jx<=halfwidth; jx++) {
 
         if ((ix-jx < 0) || (size_source <= ix-jx))
           continue;
 
-        RealNum delta_g = afWeights[jx+size] * afSource[ix-jx];
+        RealNum delta_g = afWeights[jx+halfwidth] * afSource[ix-jx];
 
-        if (! precompute_mask_times_source)
-          delta_g *= afMask[ix-jx];
+        //if (! precompute_mask_times_source)
+        //  delta_g *= afMask[ix-jx];
 
         g += delta_g;
           // Note: We previously applied the mask by multiplying
           //          aDensity[ix]
           //         by afMask[ix]   (if present)
         if (afMask)
-          denominator += afMask[ix-jx] * afWeights[jx+size];
+          denominator += afMask[ix-jx] * afWeights[jx+halfwidth];
         else
-          denominator += afWeights[jx+size];
+          denominator += afWeights[jx+halfwidth];
                                           
         // Note: If there were no mask, and if the filter is normalized
         // then denominator=1 always, and we could skip the line above.
@@ -90,21 +92,21 @@ public:
     }
   } //Filter1D::Apply()
 
-  void Resize(Integer size_half) {
+  void Resize(Integer set_halfwidth) {
     if (afWeights)
       delete [] afWeights;
-    size = size_half;
-    Integer table_size = 1 + 2*size_half;
-    afWeights = new RealNum [table_size];
+    halfwidth = set_halfwidth;
+    Integer array_size = 1 + 2*halfwidth;
+    afWeights = new RealNum [array_size];
   }
 
   Filter1D() {
-    size = -1;
+    halfwidth = -1;
     afWeights = NULL;
   }
 
-  Filter1D(Integer size_half) {
-    Resize(size_half);
+  Filter1D(Integer halfwidth) {
+    Resize(halfwidth);
   }
 
   ~Filter1D() {
@@ -114,10 +116,10 @@ public:
   void Normalize() {
     // Make sure the sum of the filter weights is 1
     RealNum total = 0.0;
-    for (Integer ix=-size; ix<=size; ix++)
-      total += afWeights[ix+size];
-    for (Integer ix=-size; ix<=size; ix++)
-      afWeights[ix+size] /= total;
+    for (Integer ix=-halfwidth; ix<=halfwidth; ix++)
+      total += afWeights[ix+halfwidth];
+    for (Integer ix=-halfwidth; ix<=halfwidth; ix++)
+      afWeights[ix+halfwidth] /= total;
   }
 
 }; // class Filter1D

@@ -32,27 +32,27 @@ template<class RealNum, class Integer>
 // where   r  = sqrt((x/s_x)^2 + (y/s_y)^2)
 //   and   A  is determined by normalization of the discrete sum
 // (The function returns "A" to the caller.)
-RealNum GenFilterGenGauss2D(Integer const f_size[2],
-                            RealNum **aaf,
+RealNum GenFilterGenGauss2D(Integer const halfwidth[2],
+                            RealNum **aafWeights,
                             RealNum width[2],    //"s_x", "s_y" parameters
                             RealNum m_exp,       //"m" parameter in formula
                             RealNum n_exp,       //"n" parameter in formula
                             RealNum cutoff = 0)
 {
   RealNum total = 0;
-  for (Integer iy=-f_size[1]; iy<=f_size[1]; iy++) {
-    for (Integer ix=-f_size[0]; ix<=f_size[0]; ix++) {
+  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
       RealNum r = sqrt(SQR(ix/width[0]) + SQR(iy/width[1]));
       RealNum h = exp(-pow(r, m_exp));
       if (h < cutoff)
         h = 0.0;
-      aaf[iy+f_size[1]][ix+f_size[0]] = h;
+      aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] = h;
       total += h;
     }
   }
-  for (Integer iy=-f_size[1]; iy<=f_size[1]; iy++) {
-    for (Integer ix=-f_size[0]; ix<=f_size[0]; ix++) {
-      aaf[iy+f_size[1]][ix+f_size[0]] /= total;
+  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+      aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] /= total;
     }
   }
   return 1.0 / total;
@@ -63,13 +63,15 @@ RealNum GenFilterGenGauss2D(Integer const f_size[2],
 template<class RealNum, class Integer>
 
 // Fill the "aaf" array with a difference of (generalized) Gaussians:
-RealNum GenFilterGenDog2D(Integer const f_size[2], //array size(/2)
+RealNum GenFilterGenDog2D(Integer const halfwidth[2], //array size(/2)
                           RealNum **aafWeights, //array of filter values h(x,y)
                           RealNum width_a[2],  //"a" parameter in formula
                           RealNum width_b[2],  //"b" parameter in formula
                           RealNum m_exp,  //"m" parameter in formula
                           RealNum n_exp,  //"n" parameter in formula
-                          RealNum *window_cutoff_ratio=NULL) //optional
+                          RealNum window_cutoff_ratio=-1.0, //optional
+                          RealNum *pA=NULL, //optional:report A,B coeffs to user
+                          RealNum *pB=NULL) //optional:report A,B coeffs to user
 {
   assert(aafWeights);
   RealNum A = 1.0;
@@ -97,31 +99,35 @@ RealNum GenFilterGenDog2D(Integer const f_size[2], //array size(/2)
       cutoff = h;
   }
 
-  Filter2D<float, int> filterXY_A(f_size);
-  Filter2D<float, int> filterXY_B(f_size);
-  A = GenFilterGenGauss2D(f_size,
+  Filter2D<float, int> filterXY_A(halfwidth);
+  Filter2D<float, int> filterXY_B(halfwidth);
+  A = GenFilterGenGauss2D(halfwidth,
                           filterXY_A.aafWeights,
                           width_a,    //"a_x", "a_y" gaussian width parameters
                           m_exp,      //"m" exponent parameter
                           cutoff);
-  B = GenFilterGenGauss2D(f_size,
+  B = GenFilterGenGauss2D(halfwidth,
                           filterXY_B.aafWeights,
                           width_b,    //"b_x", "b_y" gaussian width parameters
                           n_exp,      //"n" exponent parameter
                           cutoff);
+  if (pA && pB) {
+    *pA = A;
+    *pB = B;
+  }
 
   // The "difference of gaussians" filter is the difference between
   // these two (generalized) gaussian filters.
 
   // (We also rescale the filter upwards by 1.0/(A-B) to insure that the central
   //  peak has height 1.  (The total area under the filter will be 0)).
-  for (Integer iy=-f_size[1]; iy<=f_size[1]; iy++) {
-    for (Integer ix=-f_size[0]; ix<=f_size[0]; ix++) {
-      aafWeights[iy+f_size[1]][ix+f_size[0]] =
+  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+      aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] =
                   (
-                   (filterXY_A.aafWeights[iy+f_size[1]][ix+f_size[0]]
+                   (filterXY_A.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]]
                                       -
-                   filterXY_B.aafWeights[iy+f_size[1]][ix+f_size[0]])
+                   filterXY_B.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]])
                    /
                    (A - B)
                   );
@@ -134,10 +140,10 @@ RealNum GenFilterGenDog2D(Integer const f_size[2], //array size(/2)
 
 template<class RealNum, class Integer>
 
-void GenFilterGauss1D(Integer size,
-                      RealNum *afWeights,
-                      RealNum sigma,
-                      RealNum cutoff = 0.0)
+RealNum GenFilterGauss1D(Integer size,
+                         RealNum *afWeights,
+                         RealNum sigma,
+                         RealNum cutoff = 0.0)
 {
   assert(afWeights);
   RealNum sum = 0.0;
@@ -150,6 +156,7 @@ void GenFilterGauss1D(Integer size,
   //Normalize:
   for (Integer i=-size; i<=size; i++)
     afWeights[i+size] /= sum;
+  return 1.0/sum;
 } //GenFilterGauss1D()
 
 
@@ -157,14 +164,14 @@ void GenFilterGauss1D(Integer size,
 
 template<class RealNum, class Integer>
 
-void
-ApplyGauss3D(Integer const filter_window_size[3],
+RealNum
+ApplyGauss3D(Integer const filter_halfwidth[3],
              RealNum *width,
              Integer const image_size[3], 
              RealNum ***aaafSource,
              RealNum ***aaafDest,
-             RealNum ***aaafMask,
-             bool precompute_mask_times_source = false)
+             RealNum ***aaafMask)
+             //bool precompute_mask_times_source = true)
 {
   assert(aaafSource);
   assert(aaafDest);
@@ -172,19 +179,28 @@ ApplyGauss3D(Integer const filter_window_size[3],
   //Allocate filters in all 3 directions.  (Later apply them sequentially.)
   Filter1D<float, int> *aFilter = new Filter1D<float, int> [3];
   for (int d=0; d <= 3; d++) {
-    aFilter[d].Resize(filter_window_size[d]);
-    GenFilterGauss1D(aFilter[d].size,
+    aFilter[d].Resize(filter_halfwidth[d]);
+    GenFilterGauss1D(aFilter[d].halfwidth,
                      aFilter[d].afWeights,
                      width[d]);
   }
+  // Optional
+  // The "A" 3-D Gaussian coefficient is the product of the
+  // 1-D Gaussian coefficients in the X,Y,Z directions.
+  // Those coefficients happen to equal the value of the 1-D
+  // Gaussian evaluated at its peak, which is stored in the central entry at
+  // "halfwidth".  (The 1-D filter arrays have size equal to 2*halfwidth+1)
+  RealNum A_coeff = (aFilter[0].afWeights[aFilter[0].halfwidth] *
+                     aFilter[1].afWeights[aFilter[1].halfwidth] *
+                     aFilter[2].afWeights[aFilter[2].halfwidth]);
 
   // Create temporary arrays to perform the filter in each direction:
   // (I suppose if I really cared about speed, I could alter Filter1D::Apply() 
   //  function to use pointer arithmatic and allow large strides.
   //  This would also eliminate the need for these temporary arrays.)
-  float **aafSource[3];
-  float **aafDest[3];
-  float **aafMask[3];
+  float *aafSource[3];
+  float *aafDest[3];
+  float *aafMask[3];
   for (int d=0; d <= 3; d++) {
     aafDest[d]   = new float [image_size[d]];
     aafSource[d] = new float [image_size[d]];
@@ -208,11 +224,15 @@ ApplyGauss3D(Integer const filter_window_size[3],
       for (Integer ix = 0; ix < image_size[0]; ix++)
         aaafDest[iz][iy][ix] = aaafSource[iz][iy][ix];
 
+
   int d; //direction where we are applying the filter (x<==>0, y<==>1, z<==>2)
+
 
   // Apply the filter in the Z direction (d=2):
   d = 2;
+  cerr << "  progress: Applying Z filter. Processing Y plane#" << endl;
   for (Integer iy = 0; iy < image_size[1]; iy++) {
+    cerr << "  " << iy+1 << " / " << image_size[1] << "\n";
     for (Integer ix = 0; ix < image_size[0]; ix++) {
       // copy the data we need to the temporary array
       for (Integer iz = 0; iz < image_size[2]; iz++) {
@@ -224,8 +244,8 @@ ApplyGauss3D(Integer const filter_window_size[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d],
-                       precompute_mask_times_source);
+                       aafMask[d]);
+                       //precompute_mask_times_source);
       for (Integer iz = 0; iz < image_size[d]; iz++)
         aaafDest[iz][iy][ix] = aafDest[d][iz];  // copy back into aaafDest
     } //for (Integer ix = 0; ix < image_size[0]; ix++)
@@ -234,7 +254,9 @@ ApplyGauss3D(Integer const filter_window_size[3],
 
   // Apply the filter in the Y direction:
   d=1;
+  cerr << "  progress: Applying Y filter. Processing Z plane#" << endl;
   for (Integer iz = 0; iz < image_size[2]; iz++) {
+    cerr << "  " << iz+1 << " / " << image_size[2] << "\n";
     for (Integer ix = 0; ix < image_size[0]; ix++) {
       // copy the data we need to the temporary array
       for (Integer iy = 0; iy < image_size[1]; iy++) {
@@ -246,8 +268,8 @@ ApplyGauss3D(Integer const filter_window_size[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d],
-                       precompute_mask_times_source);
+                       aafMask[d]);
+                       //precompute_mask_times_source);
       for (Integer iy = 0; iy < image_size[d]; iy++)
         aaafDest[iz][iy][ix] = aafDest[d][iy];  // copy back into aaafDest
     } //for (Integer ix = 0; ix < image_size[0]; ix++) {
@@ -255,7 +277,9 @@ ApplyGauss3D(Integer const filter_window_size[3],
 
   // Apply the filter in the X direction:
   d=0;
+  cerr << "  progress: Applying X filter. Processing Z plane#" << endl;
   for (Integer iz = 0; iz < image_size[2]; iz++) {
+    cerr << "  " << iz+1 << " / " << image_size[2] << "\n";
     for (Integer iy = 0; iy < image_size[1]; iy++) {
       // copy the data we need to the temporary array
       for (Integer ix = 0; ix < image_size[0]; ix++) {
@@ -267,8 +291,8 @@ ApplyGauss3D(Integer const filter_window_size[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d],
-                       precompute_mask_times_source);
+                       aafMask[d]);
+                       //precompute_mask_times_source);
       for (Integer ix = 0; ix < image_size[d]; ix++)
         aaafDest[iz][iy][ix] = aafDest[d][ix];  // copy back into aaafDest
     } //for (Integer iy = 0; iy < image_size[1]; iy++)
@@ -282,6 +306,8 @@ ApplyGauss3D(Integer const filter_window_size[3],
       delete [] aafMask[d];
   }
   delete [] aFilter;
+
+  return A_coeff;
 } //ApplyGauss3D()
 
 
@@ -374,48 +400,47 @@ int main(int argc, char **argv) {
       //settings.window_cutoff_ratio /= voxel_width[d];
       //settings.window_cutoff_dog[d] /= voxel_width[d];
       //settings.window_cutoff_gauss[d] /= voxel_width[d];
-      settings.filter_window_size[d] = ceil(settings.window_cutoff_ratio * 
-                                            MAX(settings.width_a[d],
-                                                settings.width_b[d]));
+      settings.filter_halfwidth[d] = ceil(settings.window_cutoff_ratio * 
+                                          MAX(settings.width_a[d],
+                                              settings.width_b[d]));
     }
 
     cerr << "applying filter (window size in voxels: "
-         << settings.filter_window_size[0] << ","
-         << settings.filter_window_size[1] << ","
-         << settings.filter_window_size[2] << ")"
+         << settings.filter_halfwidth[0] << ","
+         << settings.filter_halfwidth[1] << ","
+         << settings.filter_halfwidth[2] << ")"
          << " ..." << endl;
 
  
     if (settings.filter_type = Settings::GAUSS) {
 
-      cerr << " Filter Used:\n"
-        " h(x,y,z)   = A*exp(-0.5*((x/s_x)^2 + (y/s_y)^2 + (z/s_z)^))\n"
-        " ... where  A,  B,  a_x,  b_x  equal:\n"
-           << " " << A << " " << B
-           << " " << width_a[0]/sqrt(2)
-           << " " << width_b[0]/sqrt(2) << "\n";
-        " ...   and A,  B,  a_y,  b_y  equal:\n"
-           << " " << A << " " << B
-           << " " << width_a[1]/sqrt(2)
-           << " " << width_b[1]/sqrt(2) << "\n";
-        " ...   and A,  B,  a_z,  b_z  equal:\n"
-           << " " << A << " " << B
-           << " " << width_a[2]/sqrt(2)
-           << " " << width_b[2]/sqrt(2) << "\n"
-          " You can plot this function in the X,Y, or Z directions using:\n"
-          " draw_filter_1D.py -dog  A  B  a  b\n";
-        
-      ApplyGauss3D(settings.filter_window_size,
-                   settings.width_a,
-                   tomo.mrc_header.nvoxels,
-                   tomo.aaafDensity,
-                   out_tomo.aaafDensity,
-                   mask.aaafDensity,
-                   true);
+      float A; // let the user know what A coefficient was used
 
+      A = ApplyGauss3D(settings.filter_halfwidth,
+                       settings.width_a,
+                       tomo.mrc_header.nvoxels,
+                       tomo.aaafDensity,
+                       out_tomo.aaafDensity,
+                       mask.aaafDensity);
+                       //true);
+
+      cerr << " Filter Used:\n"
+        " h(x,y,z)   = A*exp(-0.5*((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^))\n"
+        " ... where  A,  a_x (in voxels)  equal:\n"
+           << " " << A << " " 
+           << " " << settings.width_a[0]/sqrt(2) << "\n"
+        " ...   and  A,  a_y (in voxels)  equal:\n"
+           << " " << A << " "
+           << " " << settings.width_a[1]/sqrt(2) << "\n"
+        " ...   and  A,  a_z (in voxels)  equal:\n"
+           << " " << A << " "
+           << " " << settings.width_a[2]/sqrt(2) << "\n"
+          " You can plot this function in the X,Y, or Z directions using:\n"
+          " draw_filter_1D.py -gauss  A  a\n";
+        
     } //if (settings.filter_type = Settings::GAUSS)
 
-    if (settings.filter_type = Settings::DOG_FAST) {
+    if (settings.filter_type = Settings::DOG) {
 
       float ***aaafTemp; //temporary array to store partially processed tomogram
       float *afTemp;     //temporary array to store partially processed tomogram
@@ -424,49 +449,44 @@ int main(int argc, char **argv) {
               &afTemp,
               &aaafTemp);
 
-      // Initialize the aaafTemp array
-      for (int iz = 0; iz < size[2]; iz++)
-        for (int iy = 0; iy < size[1]; iy++)
-          for (int ix = 0; ix < size[0]; ix++)
-            aaafTemp[iz][iy][ix] = aaafSource[iz][iy][ix];
+      float A, B;        // let the user know what A B coefficients were used
+
+      // Convolve the original source with the 1st Gaussian
+      A = ApplyGauss3D(settings.filter_halfwidth,
+                       settings.width_a,
+                       tomo.mrc_header.nvoxels,
+                       tomo.aaafDensity,
+                       out_tomo.aaafDensity,
+                       mask.aaafDensity);
+                       //true);
+
+      // Convolve the original source with the 2nd Gaussian
+      B = ApplyGauss3D(settings.filter_halfwidth,
+                       settings.width_b,
+                       tomo.mrc_header.nvoxels,
+                       tomo.aaafDensity,
+                       aaafTemp,
+                       mask.aaafDensity);
+                       //true);
 
       cerr << " Filter Used:\n"
         " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
         " h_a(x,y,z) = A*exp(-0.5*((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))\n"
         " h_b(x,y,z) = B*exp(-0.5*((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))\n"
-        " ... where  A,  B,  a_x,  b_x  equal:\n"
+        " ... where  A,  B,  a_x,  b_x  (in voxels) equal:\n"
            << " " << A << " " << B
-           << " " << width_a[0]/sqrt(2)
-           << " " << width_b[0]/sqrt(2) << "\n";
-        " ...   and A,  B,  a_y,  b_y  equal:\n"
+           << " " << settings.width_a[0]/sqrt(2)
+           << " " << settings.width_b[0]/sqrt(2) << "\n"
+        " ...   and A,  B,  a_y,  b_y  (in voxels) equal:\n"
            << " " << A << " " << B
-           << " " << width_a[1]/sqrt(2)
-           << " " << width_b[1]/sqrt(2) << "\n";
-        " ...   and A,  B,  a_z,  b_z  equal:\n"
+           << " " << settings.width_a[1]/sqrt(2)
+           << " " << settings.width_b[1]/sqrt(2) << "\n"
+        " ...   and A,  B,  a_z,  b_z  (in voxels) equal:\n"
            << " " << A << " " << B
-           << " " << width_a[2]/sqrt(2)
-           << " " << width_b[2]/sqrt(2) << "\n"
+           << " " << settings.width_a[2]/sqrt(2)
+           << " " << settings.width_b[2]/sqrt(2) << "\n"
           " You can plot this function in the X,Y, or Z directions using:\n"
-          " draw_dog_filter_1D.py  A  B  a  b\n";
-        
-      // Rather than 
-      // Convolve the original source with the 1st Gaussian
-      ApplyGauss3D(settings.filter_window_size,
-                   settings.width_a,
-                   tomo.mrc_header.nvoxels,
-                   tomo.aaafDensity,
-                   out_tomo.aaafDensity,
-                   mask.aaafDensity,
-                   true);
-
-      // Convolve the original source with the 2nd Gaussian
-      ApplyGauss3D(settings.filter_window_size,
-                   settings.width_b,
-                   tomo.mrc_header.nvoxels,
-                   tomo.aaafDensity,
-                   out_tomo.aaafDensity,
-                   mask.aaafDensity,
-                   true);
+          " draw_filter_1D.py  -dog  A  B  a  b\n";
 
       // Subtract the second convolved signal from the first
       for (int iz = 0; iz < size[2]; iz++)
@@ -479,15 +499,16 @@ int main(int argc, char **argv) {
                 &afTemp,
                 &aaafTemp);
 
-    } //if (settings.filter_type = Settings::DOG_FAST)
+    } //if (settings.filter_type = Settings::DOG)
 
-    else if (settings.filter_type = Settings::DOG) {
+    else if (settings.filter_type = Settings::DOGGEN) {
       // Optional:
       // Set the filter to zero whenever the value decays below "cutoff"
       // Make sure "cutoff" is compatible with the cutoffs in the x,y directions
       // This gives the filter a round shape (instead of a rectangular shape).
-      cutoff = 1.0;
+      float cutoff = 1.0;
       for (int d=0; d<3; d++) {
+        float h;
         if (settings.width_a[d] > settings.width_b[d])
           h = exp(-pow(settings.window_cutoff_ratio, settings.m_exp));
         else
@@ -503,18 +524,19 @@ int main(int argc, char **argv) {
                    "       to the functions \"GenFilterGenDog2D()\" and \"GenFilterGenGauss2D()\")\n"
                    "For now, you can use an ordinary 3-D DOG filter with default exponents m=n=2.\n");
 
-      Filter3D<float, int> filter(settings.filter_window_size);
-      //GenFilterGenDog3D(filter.size,
+      Filter3D<float, int> filter(settings.filter_halfwidth);
+      //GenFilterGenDog3D(filter.halfwidth,
       //                  filter.aaafWeights,
       //                  settings.width_a,     //"a" parameter in formula
       //                  settings.width_b,     //"b" parameter in formula
       //                  settings.m_exp,  //"m" parameter in formula
       //                  settings.n_exp,  //"n" parameter in formula
-      //                  settings.window_cutoff_ratio_dog);
-    } //else if (settings.filter_type = Settings::DOG)
+      //                  settings.window_cutoff_ratio,
+      //                  &A, &B);
+    } //else if (settings.filter_type = Settings::DOGGEN)
 
 
-    else if (settings.filter_type = Settings::DOGXY) {
+    else if (settings.filter_type = Settings::DOGXYGEN) {
       // Generate a filter
       //
       //   h(x,y,z) = h_xy(x,y) * h_z(z)
@@ -539,43 +561,71 @@ int main(int argc, char **argv) {
       //is the product of a function of X,Y, with a function of Z.
       //This makes it a "seperable" filter:  We can perform the filters in the Z
       //direction, followed by filtering the result in the X & Y directions.
-      //This reduces the computation by a factor of O(filter.size[2]))
+      //This reduces the computation by a factor of O(filter.halfwidth[2]))
       //(A 1-D convolution followed by a 2-D convolution is much faster per 
       // voxel than a full 3-D convolution.)
 
       // First, generate the filter in the Z direction:
 
-      filterZ = Filter1D<float, int>(settings.filter_window_size[2]);
-      GenFilterGauss1D(filterZ.size,
+      Filter1D<float, int> filterZ(settings.filter_halfwidth[2]);
+      GenFilterGauss1D(filterZ.halfwidth,
                        filterZ.afWeights,
-                       width_a[2]);
+                       settings.width_a[2]);
 
 
 
       // Then generate the filter in the XY directions
 
-      float filter_window_size_xy[2] = {settings.filter_window_size[0],  //(unnecessary, but 
-                                 settings.filter_window_size[1]}; // makes more clear)
-      filterXY = Filter2D<float, int>(filter_window_size_xy);
+      int filter_halfwidth_xy[2] = {settings.filter_halfwidth[0],  //(unnecessary, but 
+                                    settings.filter_halfwidth[1]}; // makes more clear)
+      Filter2D<float, int> filterXY(filter_halfwidth_xy);
 
-      GenFilterDog2D(filterXY.size,
-                     filterXY.aafWeights,
-                     width_a,  //"a" parameter in formula
-                     width_b,  //"b" parameter in formula
-                     m_exp,       //"m" parameter in formula
-                     n_exp,       //"n" parameter in formula
-                     1.0e-6,
-                     100);
+      float A, B;        // let the user know what A B coefficients were used
+
+      GenFilterGenDog2D(filterXY.halfwidth,
+                        filterXY.aafWeights,
+                        settings.width_a,  //"a" parameter in formula
+                        settings.width_b,  //"b" parameter in formula
+                        settings.m_exp,    //"m" parameter in formula
+                        settings.n_exp,    //"n" parameter in formula
+                        settings.window_cutoff_ratio,
+                        &A,
+                        &B);
+
+      cerr << " Filter Used:\n"
+        " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
+        " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+        " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
+        " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[0]/sqrt(2)
+           << " " << settings.width_b[0]/sqrt(2)
+           << " " << settings.m_exp
+           << " " << settings.n_exp << "\n"
+        " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[1]/sqrt(2)
+           << " " << settings.width_b[1]/sqrt(2)
+           << " " << settings.m_exp
+           << " " << settings.n_exp << "\n"
+        " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[2]/sqrt(2)
+           << " " << 0.0 << " " << 1.0
+           << " " << 2.0 << " " << 0.0 << "\n"
+          " You can plot these functions using:\n"
+          " draw_filter_1D.py  -doggen  A  B  a  b  m  n\n";
+
   
 
       // Precompute the effect of the filter in the Z direction.
 
       // Create temporary 1-D arrays to perform the filter in the Z-direction:
-      afDensityZorig = new float tomo.mrc_header.nvoxels[2];
-      afDensityZnew  = new float tomo.mrc_header.nvoxels[2];
-      afMask         = NULL;
+      float *afDensityZorig = new float [tomo.mrc_header.nvoxels[2]];
+      float *afDensityZnew  = new float [tomo.mrc_header.nvoxels[2]];
+      float *afMask         = NULL;
       if (mask.aaafDensity)
-        afMask       = new float tomo.mrc_header.nvoxels[2];
+        afMask       = new float [tomo.mrc_header.nvoxels[2]];
 
       // Then apply the filter in the Z direction
       // (and store the filtered 3-D image in the original tomogram array)
@@ -586,12 +636,11 @@ int main(int argc, char **argv) {
             if (afMask)
               afMask[iz] = mask.aaafDensity[iz][iy][ix];
           }
-          afDensityZorig[iz] = tomo.aaafDensity[iz][iy][ix];
           filterZ.Apply(tomo.mrc_header.nvoxels[2],
                         afDensityZorig,
                         afDensityZnew,
-                        afMask,
-                        true);
+                        afMask);
+                        //true);
           //It would be wasteful to allocate a temporary array to store this
           //Instead store the result of the convolution in the original array:
           for (int iz = 0; iz < tomo.mrc_header.nvoxels[2]; iz++)
@@ -604,15 +653,20 @@ int main(int argc, char **argv) {
         delete [] afMask;
 
       // Now apply the filter in the X and Y directions:
+      cerr << "  progress: processing plane#" << endl;
       for (int iz = 0; iz < tomo.mrc_header.nvoxels[2]; iz++) {
+        cerr << "  " << iz+1 << " / " << tomo.mrc_header.nvoxels[2] << "\n";
+        float **aafMaskXY = NULL;
+        if (mask.aaafDensity)
+          aafMaskXY = mask.aaafDensity[iz];
         filterXY.Apply(tomo.mrc_header.nvoxels,
                        tomo.aaafDensity[iz],
                        out_tomo.aaafDensity[iz],
-                       mask.aaafDensity[iz],
-                       true,
-                       &cout);
+                       out_tomo.aaafDensity[iz]);
+                       //aafMaskXY);
+                       //true);
       }
-    } //else if (settings.filter_type = Settings::DOGXY)
+    } //else if (settings.filter_type = Settings::DOGXYGEN)
 
 
 

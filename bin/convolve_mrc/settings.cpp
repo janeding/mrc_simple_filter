@@ -40,9 +40,9 @@ Settings::Settings() {
   m_exp = 2.0;       // exponent in generalized Gaussian formula (width a)
   n_exp = 2.0;       // exponent in generalized Gaussian formula (width b)
 
-  filter_window_size[0] = -1; // width of the filter used (in voxels)
-  filter_window_size[1] = -1; // (This is the size of the domain of the function
-  filter_window_size[2] = -1; //  which will be convolved with the image.
+  filter_halfwidth[0] = -1; // width of the filter used (in voxels)
+  filter_halfwidth[1] = -1; // (This is the size of the domain of the function
+  filter_halfwidth[2] = -1; //  which will be convolved with the image.
                               //  "-1" means unspecified.)
 
   window_cutoff_ratio = 3.0;
@@ -50,7 +50,7 @@ Settings::Settings() {
                              // nearby voxels up to a distance of 3.0*sigma away
                              // Throw away all pixels further than this distance
                              // (even if they lie within the window box).
-                             //This only occurs if the filter_window_size was
+                             //This only occurs if the filter_halfwidth was
                              //not otherwise specified manually by the user.
 
   //float window_sigma_dog = 2.0;   //In directions where a diff-of-gauss is used
@@ -246,7 +246,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
       //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOG;
+      filter_type = DOGGEN;
       num_arguments_deleted = 7;
     } //if (vArgs[i] == "-dog")
 
@@ -267,7 +267,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
       //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOG;
+      filter_type = DOGGEN;
       num_arguments_deleted = 3;
     } //if (vArgs[i] == "-dog")
 
@@ -298,7 +298,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
       //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOGXY;
+      filter_type = DOGXYGEN;
       num_arguments_deleted = 6;
     } //if (vArgs[i] == "-dogxy-aniso")
 
@@ -328,7 +328,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw string("Error: The two arguments following " + vArgs[i] + " must be\n"
       //               " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOGXY;
+      filter_type = DOGXYGEN;
       num_arguments_deleted = 4;
     } //if (vArgs[i] == "-dogxy")
 
@@ -443,18 +443,18 @@ Settings::ParseArgs(vector<string>& vArgs)
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
         throw "Error: The " + vArgs[i] + 
           " argument must be followed by either 1 or 3 positive integers.\n";
-      filter_window_size[0] = stoi(vArgs[i+1]);
+      filter_halfwidth[0] = stoi(vArgs[i+1]);
       num_arguments_deleted = 2;
       if ((i+4 >= vArgs.size()) && 
           (vArgs[i+2][0] != '-') && (vArgs[i+2] != "") &&
           (vArgs[i+3][0] != '-') && (vArgs[i+3] != "")) {
-        filter_window_size[1] = stoi(vArgs[i+2]);
-        filter_window_size[2] = stoi(vArgs[i+3]);
+        filter_halfwidth[1] = stoi(vArgs[i+2]);
+        filter_halfwidth[2] = stoi(vArgs[i+3]);
         num_arguments_deleted = 4;
       }
       else {
-        filter_window_size[1] = filter_window_size[0];
-        filter_window_size[2] = filter_window_size[0];
+        filter_halfwidth[1] = filter_halfwidth[0];
+        filter_halfwidth[2] = filter_halfwidth[0];
       }
     } //if (vArgs[i] == "-window")
 
@@ -573,15 +573,15 @@ Settings::ParseArgs(vector<string>& vArgs)
     width_b[2] = log_width[2] * (1.0 + 0.5*log_delta_t_over_t);
     m_exp = 2.0;
     n_exp = 2.0;
-    filter_type = DOG_FAST;
+    filter_type = DOG;
   }
 
   // ----------
-  if ((filter_type == DOG) &&
+  if ((filter_type == DOGGEN) &&
       (m_exp == 2.0) &&
       (n_exp == 2.0)) {
 
-    filter_type = DOG_FAST;
+    filter_type = DOG;
 
     if (exponents_set_by_user) {
       //The default settings include a factor of 1/sqrt(2) in the gaussian width
@@ -592,7 +592,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       // the exponents to be 2 (as they would be under default conditions 
       // using normal Gaussians.) Otherwise, they may be surprised why something
       // special happens when the exponents = 2.0 exactly.  Later we will check
-      // if the expoents == 2.0, and use a faster algorithm (DOG_FAST) which 
+      // if the expoents == 2.0, and use a faster algorithm (DOG) which 
       // includes this factor of 1/sqrt(2) automatically.
       // So we compensate for that now:
       for (int d=0; d<3; d++) {
@@ -602,7 +602,7 @@ Settings::ParseArgs(vector<string>& vArgs)
           width_b[d] *= sqrt(2.0);
       }
     }
-  } //if ((filter_type == DOG) && (m_exp == 2.0) && (m_exp == 2.0))
+  } //if ((filter_type == DOGGEN) && (m_exp == 2.0) && (m_exp == 2.0))
 
 
   // ----------
@@ -612,10 +612,10 @@ Settings::ParseArgs(vector<string>& vArgs)
   // "window_cutoff_ratio" parameters which are distances expressed
   // as multiples of the widths of the gaussians (a and b parameters)
   for (int d=0; d < 3; d++) {
-    if (filter_window_size[d] < 0.0)
-      filter_window_size[d] = (MAX(width_a[d], width_b[d])
-                               *
-                               window_cutoff_ratio);
+    if (filter_halfwidth[d] < 0.0)
+      filter_halfwidth[d] = (MAX(width_a[d], width_b[d])
+                             *
+                             window_cutoff_ratio);
       //(NOTE: These units are still in nm (physical units), not voxels.
       // We still need to convert them into voxels. When we do we will use the 
       // "ceil()" function to make sure all of the windows have integer size.)

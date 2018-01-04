@@ -25,7 +25,7 @@ void Alloc2D(Integer size[2],
   if (! paaX)
     return;
 
-  *paaX = new Entry** [size[1]];
+  *paaX = new Entry* [size[1]];
 
   for(Integer iy=0; iy<size[1]; iy++)
     (*paaX)[iy] = &((*paX)[ iy*size[0] ]);

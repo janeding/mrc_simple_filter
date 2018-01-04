@@ -14,18 +14,18 @@ class Filter2D {
 public:
   RealNum *af;
   RealNum **aafWeights;
-  Integer size[2];
+  Integer halfwidth[2]; //num pixels from filter center to edge in x,y directions
 
 
 
   // Apply the filter to tomographic data in the "aafSource" array
   // Save the results in the "aafDest" array.  (A "mask" is optional.)
-  // All arrays are 2D and assumed to be the same size, given by size_source[].
-  void Apply(Integer size_source[2],
+  // All arrays are 2D and assumed to be the same size
+  void Apply(Integer const size_source[2],
              RealNum **aafSource,
              RealNum **aafDest,
-             RealNum **aafMask = NULL,
-             bool precompute_mask_times_source = false) const
+             RealNum **aafMask = NULL) const
+             //bool precompute_mask_times_source = true) const
   {
 
     // Apply the filter to the original tomogram data. (Store in aafSource)
@@ -44,16 +44,18 @@ public:
     //     the area under the curve h(j)*mask(i-j)    (as a function of j)
     //     
 
-    if (aafMask && precompute_mask_times_source) {
-      // The mask should be 1 everywhere we want to consider, and 0 elsewhere.
-      // Multiplying the density in the tomogram by the mask removes some of 
-      // the voxels from consideration later on when we do the filtering.
-      // (Later, we will adjust the weight of the average we compute when we
-      //  apply the filter in order to account for the voxels we deleted now.)
+    // The mask should be 1 everywhere we want to consider, and 0 elsewhere.
+    // Multiplying the density in the tomogram by the mask removes some of 
+    // the voxels from consideration later on when we do the filtering.
+    // (Later, we will adjust the weight of the average we compute when we
+    //  apply the filter in order to account for the voxels we deleted now.)
+    // Precomupting the mask product is faster but modifies the source image.
+
+    //if (aafMask && precompute_mask_times_source)
+    if (aafMask) 
       for (int iy=0; iy<size_source[1]; iy++)
         for (int ix=0; ix<size_source[0]; ix++)
           aafSource[iy][ix] *= aafMask[iy][ix];
-    }
 
     for (Integer iy=0; iy<size_source[1]; iy++) {
 
@@ -65,21 +67,21 @@ public:
         RealNum g = 0.0;
         RealNum denominator = 0.0;
 
-        for (Integer jy=-size[1]; jy<=size[1]; jy++) {
+        for (Integer jy=-halfwidth[1]; jy<=halfwidth[1]; jy++) {
 
           if ((iy-jy < 0) || (size_source[1] <= iy-jy))
             continue;
 
-          for (Integer jx=-size[0]; jx<=size[0]; jx++) {
+          for (Integer jx=-halfwidth[0]; jx<=halfwidth[0]; jx++) {
 
             if ((ix-jx < 0) || (size_source[0] <= ix-jx))
               continue;
 
             RealNum delta_g = 
-              aafWeights[jy+size[1]][jx+size[0]] * aafSource[iy-jy][ix-jx];
+              aafWeights[jy+halfwidth[1]][jx+halfwidth[0]] * aafSource[iy-jy][ix-jx];
 
-            if (! precompute_mask_times_source)
-              delta_g *= aafMask[iy-jy][ix-jx];
+            //if (! precompute_mask_times_source)
+            //  delta_g *= aafMask[iy-jy][ix-jx];
 
             g += delta_g;
               // Note: We previously applied the mask by multiplying
@@ -87,10 +89,10 @@ public:
               //         by aafMask[iy][ix]   (if present)
             if (aafMask)
               denominator +=
-                aafMask[iy-jy][ix-jx] * aafWeights[jy+size[1]][jx+size[0]];
+                aafMask[iy-jy][ix-jx] * aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
                                                
             else
-              denominator += aafWeights[jy+size[1]][jx+size[0]];
+              denominator += aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
                                           
             // Note: If there were no mask, and if the filter is normalized
             // then denominator=1 always, and we could skip the line above.
@@ -110,49 +112,49 @@ public:
   } //Filter2D::Apply()
 
 
-  void Resize(Integer size_half) {
-    Integer table_size[2];
+  void Resize(Integer const set_halfwidth[2]) {
+    Integer array_size[2];
     if (af && aafWeights) {
       for(Integer d=0; d < 2; d++)
-        table_size[d] = 1 + 2*size[d];
-      Dealloc2D(table_size, &af, &aafWeights);
+        array_size[d] = 1 + 2*halfwidth[d];
+      Dealloc2D(array_size, &af, &aafWeights);
     }
     for(Integer d=0; d < 2; d++) {
-      size[d] = size_half[d];
-      table_size[d] = 1 + 2*size_half[d];
+      halfwidth[d] = set_halfwidth[d];
+      array_size[d] = 1 + 2*halfwidth[d];
     }
-    Alloc2D(table_size, &af, &aafWeights);
+    Alloc2D(array_size, &af, &aafWeights);
   }
 
-  Filter2D(Integer size_half[2]) {
+  Filter2D(Integer const set_halfwidth[2]) {
     af = NULL;
     aafWeights = NULL;
-    Resize(size_half);
+    Resize(set_halfwidth);
   }
 
   Filter2D() {
-    size[0] = -1;
-    size[1] = -1;
+    halfwidth[0] = -1;
+    halfwidth[1] = -1;
     af = NULL;
     aafWeights = NULL;
   }
 
   ~Filter2D() {
-    Integer table_size[2];
+    Integer array_size[2];
     for(Integer d=0; d < 2; d++)
-      table_size[d] = 1 + 2*size[d];
-    Dealloc2D(table_size, &af, &aafWeights);
+      array_size[d] = 1 + 2*halfwidth[d];
+    Dealloc2D(array_size, &af, &aafWeights);
   }
 
   void Normalize() {
     // Make sure the sum of the filter weights is 1
     RealNum total = 0.0;
-    for (Integer iy=-size[1]; iy<=size[1]; iy++)
-      for (Integer ix=-size[0]; ix<=size[0]; ix++)
-        total += aafWeights[iy+size[1]][ix+size[0]];
-    for (Integer iy=-size[1]; iy<=size[1]; iy++)
-      for (Integer ix=-size[0]; ix<=size[0]; ix++)
-        aafWeights[iy+size[1]][ix+size[0]] /= total;
+    for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
+      for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
+        total += aafWeights[iy+halfwidth[1]][ix+halfwidth[0]];
+    for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
+      for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
+        aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] /= total;
   }
 }; // class Filter2D
 
