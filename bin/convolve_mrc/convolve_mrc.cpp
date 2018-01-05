@@ -177,10 +177,10 @@ ApplyGauss3D(Integer const filter_halfwidth[3],
 {
   assert(aaafSource);
   assert(aaafDest);
-  assert(aaafMask);
+  //assert(aaafMask);
   //Allocate filters in all 3 directions.  (Later apply them sequentially.)
   Filter1D<float, int> *aFilter = new Filter1D<float, int> [3];
-  for (int d=0; d <= 3; d++) {
+  for (int d=0; d < 3; d++) {
     aFilter[d].Resize(filter_halfwidth[d]);
     GenFilterGauss1D(aFilter[d].halfwidth,
                      aFilter[d].afWeights,
@@ -203,7 +203,7 @@ ApplyGauss3D(Integer const filter_halfwidth[3],
   float *aafSource[3];
   float *aafDest[3];
   float *aafMask[3];
-  for (int d=0; d <= 3; d++) {
+  for (int d=0; d < 3; d++) {
     aafDest[d]   = new float [image_size[d]];
     aafSource[d] = new float [image_size[d]];
     aafMask[d]   = NULL;
@@ -239,7 +239,7 @@ ApplyGauss3D(Integer const filter_halfwidth[3],
       // copy the data we need to the temporary array
       for (Integer iz = 0; iz < image_size[2]; iz++) {
         aafSource[d][iz] = aaafDest[iz][iy][ix];  // copy from aaafDest
-        if (aafMask)
+        if (aaafMask)
           aafMask[d][iz] = aaafMask[iz][iy][ix];
       }
       // apply the filter to the 1-D temporary array
@@ -263,7 +263,7 @@ ApplyGauss3D(Integer const filter_halfwidth[3],
       // copy the data we need to the temporary array
       for (Integer iy = 0; iy < image_size[1]; iy++) {
         aafSource[d][iy] = aaafDest[iz][iy][ix]; //data from previous aaafDest
-        if (aafMask)
+        if (aaafMask)
           aafMask[d][iy] = aaafMask[iz][iy][ix];
       }
       // apply the filter to the 1-D temporary array
@@ -286,7 +286,7 @@ ApplyGauss3D(Integer const filter_halfwidth[3],
       // copy the data we need to the temporary array
       for (Integer ix = 0; ix < image_size[0]; ix++) {
         aafSource[d][ix] = aaafDest[iz][iy][ix]; //data from previous aaafDest
-        if (aafMask)
+        if (aaafMask)
           aafMask[d][ix] = aaafMask[iz][iy][ix];
       }
       // apply the filter to the 1-D temporary array
@@ -736,8 +736,8 @@ int main(int argc, char **argv) {
     }
   }
 
-  catch (string s) {
-    cerr << s << endl; // In case of file format error, print message and exit
+  catch (InputErr& e) {
+    cerr << "\n" << e.what() << endl;
     exit(1);
   }
 }

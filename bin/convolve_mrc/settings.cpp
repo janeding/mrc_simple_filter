@@ -1,4 +1,5 @@
 #include <cmath>
+#include <sstream>
 //#include <iostream>
 using namespace std;
 
@@ -104,7 +105,7 @@ Settings::ParseArgs(vector<string>& vArgs)
 
     int num_arguments_deleted = 0;
 
-    if (vArgs[i] == "-in")
+    if ((vArgs[i] == "-in") || (vArgs[i] == "-i"))
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
         throw InputErr("Error: The " + vArgs[i] + 
@@ -113,10 +114,10 @@ Settings::ParseArgs(vector<string>& vArgs)
 
       num_arguments_deleted = 2;
 
-    } // if (vArgs[i] == "-in")
+    } // if ((vArgs[i] == "-in") || (vArgs[i] == "-i"))
 
 
-    else if (vArgs[i] == "-out")
+    else if ((vArgs[i] == "-out") || (vArgs[i] == "-o"))
     {
       if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
         throw InputErr("Error: The " + vArgs[i] + 
@@ -125,7 +126,7 @@ Settings::ParseArgs(vector<string>& vArgs)
 
       num_arguments_deleted = 2;
 
-    } // if (vArgs[i] == "-out")
+    } // if ((vArgs[i] == "-out") || (vArgs[i] == "-o"))
 
 
     else if (vArgs[i] == "-mask")
@@ -543,23 +544,30 @@ Settings::ParseArgs(vector<string>& vArgs)
 
   } // loop over arguments "for (int i=1; i < vArgs.size(); ++i)"
 
+  if (vArgs.size() > 1) {
+    stringstream err_msg;
+    err_msg << "Error: Unrecognized argument: \""
+            << vArgs[1] << "\"\n";
+    throw InputErr(err_msg.str());
+  }
+
 
   // ----------
-  if (filter_type == NONE)
-    throw InputErr("Error: You must specify the kind of filter you want to use\n"
-                   "       (Ie., the function you wish to convolve with your image, for example\n"
-                   "        by using the \"-gauss\",\"-dog\",\"-log\",\"-file\",... arguments)\n");
+  //if (filter_type == NONE)
+  //  throw InputErr("Error: You must specify the kind of filter you want to use\n"
+  //                 "       (Ie., the function you wish to convolve with your image, for example\n"
+  //                 "        by using the \"-gauss\",\"-dog\",\"-log\",\"-file\",... arguments)\n");
 
   // ----------
   if (in_file_name.size() == 0) {
     throw InputErr("Error: You must specify the name of the tomogram you want to read\n"
-                   "       using the \"-in SOURCE_FILE.mrc\" argument\n"
-                   "       (\".rec\" files are also supported.)\n");
+                   "       using the \"-in SOURCE_FILE\" argument\n"
+                   "       (These files usually end in \".mrc\" or \".rec\" .)\n");
   }
   if (out_file_name.size() == 0) {
     throw InputErr("Error: You must specify the name of the tomogram you want to read\n"
-                   "       using the \"-out DESTINATION_FILE.mrc\" argument\n"
-                   "       (\".rec\" files are also supported.)\n");
+                   "       using the \"-out DESTINATION_FILE\" argument\n"
+                   "       (These files usually end in \".mrc\" or \".rec\" .)\n");
   }
 
   if (filter_type == LOG) {
