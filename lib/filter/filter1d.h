@@ -125,5 +125,17 @@ public:
 }; // class Filter1D
 
 
+template<class RealNum, class Integer>
+inline Filter1D<RealNum, Integer>&
+operator = (const Filter1D<RealNum, Integer>& source) {
+  Dealloc(); // (just in case)
+  Resize(source.halfwidth); // allocates and initializes af and aaafWeights
+  //for(Int ix=-halfwidth; ix<=halfwidth; ix++)
+  //  afWeights[ix] = source.afWeights[ix];
+  // Use memcpy() instead:
+  memcpy(afWeights,
+         source.afWeights,
+         (1+2*halfwidth[0]) * sizeof(RealNum));
+}
 
 #endif //#ifndef _FILTER1D_H

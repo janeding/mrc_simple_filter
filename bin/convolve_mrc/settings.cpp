@@ -1,6 +1,6 @@
 #include <cmath>
 #include <sstream>
-//#include <iostream>
+#include <iostream>
 using namespace std;
 
 #include <err_report.h>
@@ -15,6 +15,7 @@ Settings::Settings() {
   // Default settings
   in_file_name = "";
   in_rescale01 = true;
+  invert_output = false;
   out_file_name = "";
   mask_file_name = "";
   mask_select = 1;
@@ -45,22 +46,23 @@ Settings::Settings() {
   filter_halfwidth[0] = -1; // width of the filter used (in voxels)
   filter_halfwidth[1] = -1; // (This is the size of the domain of the function
   filter_halfwidth[2] = -1; //  which will be convolved with the image.
-                              //  "-1" means unspecified.)
+                            //  "-1" means unspecified.)
 
-  window_cutoff_ratio = 3.0;
-                             //By default, when averaging/filtering consider
-                             // nearby voxels up to a distance of 3.0*sigma away
-                             // Throw away all pixels further than this distance
-                             // (even if they lie within the window box).
-                             //This only occurs if the filter_halfwidth was
-                             //not otherwise specified manually by the user.
+  window_threshold=0.05;    //Filter intensity decay value before giving up
+                            //When the filter strength is less than this value
+                            //we ignore it. For difference-of-gaussian filters
+                            //we choose the gaussian with the wider width. This
+                            //parameter overrides other window-width settings.
+                            //(Setting it to a number < 0 disables it.)
 
-  //float window_sigma_dog = 2.0;   //In directions where a diff-of-gauss is used
-  //                                //use this as the window size (in units of
-  //                                //the "b" parameter in that direction).
-  //float window_sigma_gauss = 2.0; //In directions where a Gaussian is used,
-  //                                //use this as the window size (in units of
-  //                                //the "a" (sigma) parameter in that direction)
+  window_ratio = -1.0;      //By default, when averaging/filtering consider
+                            //nearby voxels up to a distance of 2.0*sigma away
+                            //Throw away all pixels further than this distance
+                            //(even if they lie within the window box).
+                            //This only occurs if the filter_halfwidth was
+                            //not otherwise specified manually by the user.
+                            //(Setting this to a number < 0 disables it.)
+
   use_thresholds = false;
   use_dual_thresholds = false;
   out_threshold_01_a = 1.0;
@@ -181,10 +183,15 @@ Settings::ParseArgs(vector<string>& vArgs)
     else if (vArgs[i] == "-norescale")
     {
       in_rescale01 = false;
-
       num_arguments_deleted = 1;
-
     } // if (vArgs[i] == "-norescale")
+
+
+    else if (vArgs[i] == "-invert")
+    {
+      invert_output = true;
+      num_arguments_deleted = 1;
+    } // if (vArgs[i] == "-invert")
 
 
     else if (vArgs[i] == "-gauss-aniso")
@@ -248,7 +255,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
       //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOGGEN;
+      filter_type = DOG;
       num_arguments_deleted = 7;
     } //if (vArgs[i] == "-dog")
 
@@ -269,7 +276,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       //if (width_b[0] <= width_a[0])
       //  throw InputErr("Error: The two arguments following " + vArgs[i] + " must be\n"
       //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
-      filter_type = DOGGEN;
+      filter_type = DOG;
       num_arguments_deleted = 3;
     } //if (vArgs[i] == "-dog")
 
@@ -284,7 +291,7 @@ Settings::ParseArgs(vector<string>& vArgs)
         throw InputErr("Error: The " + vArgs[i] + 
                        " argument must be followed by 5 positive numbers:\n"
                        " a_x  a_y  b_x  b_y  a_z\n"
-                       " (I.E., the \"A\" and \"-B\" Gaussian widths in X and Y directions,\n"
+                       " (I.E., the \"A\" and \"B\" Gaussian widths in X and Y directions,\n"
                        "  followed by the Gaussian width in the Z direction.)\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = stof(vArgs[i+2]);
@@ -377,40 +384,6 @@ Settings::ParseArgs(vector<string>& vArgs)
     }
 
 
-    else if (vArgs[i] == "-cutoff")
-    {
-      if ((i+3 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-        throw InputErr("Error: The " + vArgs[i] + 
-                       " argument must be followed by a number.\n");
-      window_cutoff_ratio = stof(vArgs[i+1]);
-      //window_cutoff_ratio_exp = exp(-pow(window_cutoff_ratio,
-      //                                   n_exp));
-      num_arguments_deleted = 2;
-    } // if (vArgs[i] == "-cutoff")
-
-
-    //else if (vArgs[i] == "-cutoff-dog")
-    //{
-    //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw InputErr("Error: The " + vArgs[i] + 
-    //                   " argument must be followed by a number.\n");
-    //  window_cutoff_ratio_dog = stof(vArgs[i+1]);
-    //  //window_cutoff_ratio_dog = exp(-pow(window_sigmma_dog, n_exp));
-    //  num_arguments_deleted = 2;
-    //} // if (vArgs[i] == "-cutoff-dog")
-
-
-    //else if (vArgs[i] == "-cutoff-gauss")
-    //{
-    //  if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
-    //    throw InputErr("Error: The " + vArgs[i] + 
-    //                   " argument must be followed by a number.\n");
-    //  window_cutoff_ratio_gauss = stof(vArgs[i+1]);
-    //  //window_cutoff_ratio_gauss_exp = exp(-0.5 * window_sigma_gauss *
-    //  //                                           window_sigma_gauss);
-    //  num_arguments_deleted = 2;
-    //} // if (vArgs[i] == "-cutoff-z")
-
 
     else if ((vArgs[i] == "-dog-exponents") ||
              (vArgs[i] == "-exponents"))
@@ -461,6 +434,17 @@ Settings::ParseArgs(vector<string>& vArgs)
     } //if (vArgs[i] == "-window")
 
 
+    else if (vArgs[i] == "-window-ratio")
+    {
+      if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a number.\n");
+      window_ratio = stof(vArgs[i+1]);
+      //window_ratio_exp = exp(-pow(window_ratio,
+      //                                   n_exp));
+      num_arguments_deleted = 2;
+    } // if (vArgs[i] == "-window-ratio")
+
     else if (vArgs[i] == "-thresh") {
       if (i+2 >= vArgs.size())
         throw InputErr("Error: The " + vArgs[i] + 
@@ -470,6 +454,16 @@ Settings::ParseArgs(vector<string>& vArgs)
       out_threshold_01_a = stof(vArgs[i+1]);
       out_threshold_01_b = out_threshold_01_a;
     }
+
+
+    else if ((vArgs[i] == "-cutoff") || (vArgs[i] == "-window-cutoff"))
+    {
+      if ((i+1 >= vArgs.size()) || (vArgs[i+1] == "") || (vArgs[i+1][0] == '-'))
+        throw InputErr("Error: The " + vArgs[i] + 
+                       " argument must be followed by a number.\n");
+      window_threshold = stof(vArgs[i+1]);
+      num_arguments_deleted = 2;
+    } // if (vArgs[i] == "-cutoff")
 
 
     else if (vArgs[i] == "-thresh2") {
@@ -590,12 +584,20 @@ Settings::ParseArgs(vector<string>& vArgs)
     filter_type = DOG;
   }
 
+
   // ----------
   if ((filter_type == DOGGEN) &&
       (m_exp == 2.0) &&
       (n_exp == 2.0)) {
 
-    filter_type = DOG;
+    // If the exponents equal 2, then the functions we are convolving
+    // with are ordinary Gaussians.  Ordinary Gaussians are are separable
+    // and can be convolved successively in 1-D in the x,y,z directions.
+    // Hence we can save a great deal of time by doing this compared to
+    // using a more general filter function which would force us to perform
+    // the full 3-D convolution.
+
+    filter_type = DOG; // <-- use fast Gaussians instead of DOGGEN which is slow
 
     if (exponents_set_by_user) {
       //The default settings include a factor of 1/sqrt(2) in the gaussian width
@@ -623,13 +625,13 @@ Settings::ParseArgs(vector<string>& vArgs)
 
   // If the user did not specify the width of the filters explicitly,
   // then, determine the filter window size (filter width) from the
-  // "window_cutoff_ratio" parameters which are distances expressed
+  // "window_ratio" parameters which are distances expressed
   // as multiples of the widths of the gaussians (a and b parameters)
   for (int d=0; d < 3; d++) {
     if (filter_halfwidth[d] < 0.0)
       filter_halfwidth[d] = (MAX(width_a[d], width_b[d])
                              *
-                             window_cutoff_ratio);
+                             window_ratio);
       //(NOTE: These units are still in nm (physical units), not voxels.
       // We still need to convert them into voxels. When we do we will use the 
       // "ceil()" function to make sure all of the windows have integer size.)

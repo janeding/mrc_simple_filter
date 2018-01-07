@@ -187,5 +187,20 @@ public:
 }; // class Filter3D
 
 
+template<class RealNum, class Integer>
+inline Filter3D<RealNum, Integer>&
+operator = (const Filter3D<RealNum, Integer>& source) {
+  Dealloc(); // (just in case)
+  Resize(source.halfwidth); // allocates and initializes af and aaafWeights
+  //for(Int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++)
+  //  for(Int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
+  //    for(Int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
+  //      aaafWeights[iz][iy][ix] = source.aaafWeights[iz][iy][ix];
+  // Use memcpy() instead:
+  memcpy(af,
+         source.af,
+         ((1+2*halfwidth[0]) * (1+2*halfwidth[1]) * (1+2*halfwidth[2]))
+         *sizeof(RealNum));
+}
 
 #endif //#ifndef _FILTER3D_H

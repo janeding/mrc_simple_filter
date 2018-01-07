@@ -160,4 +160,19 @@ public:
 
 
 
+template<class RealNum, class Integer>
+inline Filter2D<RealNum, Integer>&
+operator = (const Filter2D<RealNum, Integer>& source) {
+  Dealloc(); // (just in case)
+  Resize(source.halfwidth); // allocates and initializes af and aaafWeights
+  //for(Int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
+  //  for(Int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
+  //    aafWeights[iy][ix] = source.aafWeights[iy][ix];
+  // Use memcpy() instead:
+  memcpy(af,
+         source.af,
+         ((1+2*halfwidth[0]) * (1+2*halfwidth[1]))
+         *sizeof(RealNum));
+}
+
 #endif //#ifndef _FILTER2D_H

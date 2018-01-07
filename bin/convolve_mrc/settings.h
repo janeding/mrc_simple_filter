@@ -64,6 +64,7 @@ class Settings {
  public:
   string in_file_name;
   bool in_rescale01;
+  bool invert_output;
   string out_file_name;
   string mask_file_name;
   int mask_select;
@@ -90,16 +91,10 @@ class Settings {
              //and a 1D Gaussian filter (in the Z direction)
   } FilterType; 
   
-  FilterType filter_type = GAUSS;
+  FilterType filter_type;
 
-  float window_cutoff_ratio;
-
-  //float window_sigma_dog;    //In directions where a diff-of-gauss is used
-  //                           //use this as the window size (in units of
-  //                           //the "b" parameter in that direction).
-  //float window_sigma_gauss;  //In directions where a Gaussian is used,
-  //                           //use this as the window size (in units of
-  //                           //the "a" (sigma) parameter in that direction)
+  float window_cutoff;
+  float window_ratio;
 
   bool use_thresholds;
   bool use_dual_thresholds;

@@ -21,6 +21,7 @@
 
 
 #include <cstring>
+#include <cassert>
 #include <fstream>
 #include <iostream>
 using namespace std;
@@ -28,6 +29,8 @@ using namespace std;
 #include "mrc_simple.h"
 
 
+template<class RealNum >
+inline RealNum ABS(RealNum x) { return ((x<0.0) ? -x: x); }
 
 void MrcHeader::Read(istream& mrc_file) {
   // Read the first "SIZE_HEADER" bytes into a temporary array "header_data"
@@ -240,7 +243,6 @@ void MrcHeader::Write(ostream& mrc_file) const {
   mrc_file.write((char*)&(mapCRS[1]), sizeof(Int));
   mrc_file.write((char*)&(mapCRS[2]), sizeof(Int));
 
-
   // 20    DMIN     minimum density value
   // 21    DMAX     maximum density value
   // 22    DMEAN    mean density value
@@ -427,7 +429,7 @@ void MrcSimple::ReadArray(istream& mrc_file) {
 
 
 
-void MrcSimple::Write(string out_file_name) const {
+void MrcSimple::Write(string out_file_name) {
   fstream mrc_file;
   mrc_file.open(out_file_name.c_str(), ios::binary | ios::out);
   if (! mrc_file) 
@@ -437,7 +439,7 @@ void MrcSimple::Write(string out_file_name) const {
 }
 
 
-void MrcSimple::Write(ostream& mrc_file) const {
+void MrcSimple::Write(ostream& mrc_file) {
   // First, write the MRC file header:
   //mrc_header.Write(mrc_file); <-- OOPS, that does not work.  Commenting out.
   // Note that any changes made to the tomogram density data will effect the
@@ -446,6 +448,8 @@ void MrcSimple::Write(ostream& mrc_file) const {
   // of numbers in "float" format.  This means I must change mrc.mode.
   MrcHeader new_mrc_header = mrc_header;
   new_mrc_header.mode = MrcHeader::MRC_MODE_FLOAT;
+
+  FindMinMaxMean(); // calculates the "dmin", "dmax", and "dmean" member values
   new_mrc_header.Write(mrc_file);
 
   // Finally, write the array of densities:
@@ -520,4 +524,39 @@ void MrcSimple::Rescale01(float ***aaafMask)
 }
 
 
+
+void MrcSimple::Invert(float ***aaafMask)
+{
+  double sum = 0.0;
+  long n = 0;
+  for(Int iz=0; iz<mrc_header.nvoxels[2]; iz++) {
+    for(Int iy=0; iy<mrc_header.nvoxels[1]; iy++) {
+      for(Int ix=0; ix<mrc_header.nvoxels[0]; ix++) {
+	if (aaafMask && (aaafMask[iz][iy][ix] == 0))
+	  continue; //if a mask is supplied, ignore voxels when mask=0
+        sum += aaafDensity[iz][iy][ix];
+        n += 1;
+      }
+    }
+  }
+  double ave = sum / n;
+  float dmin = ave;
+  float dmax = ave;
+  for(Int iz=0; iz<mrc_header.nvoxels[2]; iz++) {
+    for(Int iy=0; iy<mrc_header.nvoxels[1]; iy++) {
+      for(Int ix=0; ix<mrc_header.nvoxels[0]; ix++) {
+	if (aaafMask && (aaafMask[iz][iy][ix] == 0))
+	  continue; //if a mask is supplied, ignore voxels when mask=0
+        aaafDensity[iz][iy][ix] = 2.0*ave - aaafDensity[iz][iy][ix];
+        if (aaafDensity[iz][iy][ix] < dmin)
+          dmin = aaafDensity[iz][iy][ix];
+        if (dmax < aaafDensity[iz][iy][ix])
+          dmax = aaafDensity[iz][iy][ix];
+      }
+    }
+  }
+  //mrc_header.dmean remains the same, and should equal "ave"
+  //(Note: I could also use FindMinMaxMean(aaafMask))
+  assert(ABS(mrc_header.dmean - ave) < 1.0e-3*ABS(ave));
+}
 

@@ -52,12 +52,12 @@ class MrcSimple {
             bool rescale=true,    //Optional: rescale densities from 0 to 1?
             float ***aaafMask=NULL);//(also chooses mrc_header.uses_signed_bytes)
 
-  void Write(string mrc_file_name) const; //Write an .MRC/.REC file
+  void Write(string mrc_file_name); //Write an .MRC/.REC file
 
   void Read(istream& mrc_file,     //Read an .MRC/.REC file (input stream)
             bool rescale=true,
 	    float ***aaafMask=NULL);
-  void Write(ostream& mrc_file) const; //Write an .MRC/.REC file (output stream)
+  void Write(ostream& mrc_file); //Write an .MRC/.REC file (output stream)
 
 
 
@@ -89,6 +89,12 @@ class MrcSimple {
   // containing zeros 0 are ignored and are not rescaled.
   void Rescale01(float ***aaafMask=NULL); 
 
+  // Sometimes we want to make the "white" voxels look black,
+  // and the black voxels look white.
+  // The Invert() will change the density of every voxel using:
+  //   new_density = (ave_density - old_density)
+  void Invert(float ***aaafMask=NULL); 
+
   // Print information about the tomogram size and format
   inline void PrintStats(ostream &out) { mrc_header.PrintStats(out); }
 
@@ -114,7 +120,7 @@ class MrcSimple {
     //for(Int iz=0; iz<mrc_header.nvoxels[2]; iz++)
     //  for(Int iy=0; iy<mrc_header.nvoxels[1]; iy++)
     //    for(Int ix=0; ix<mrc_header.nvoxels[0]; ix++)
-    //      aaafDensity[iz][iy][ix] = source.aafDensity[iz][iy][ix];
+    //      aaafDensity[iz][iy][ix] = source.aaafDensity[iz][iy][ix];
     // Use memcpy() instead:
     memcpy(afDensity, source.afDensity, 
            mrc_header.nvoxels[0]*mrc_header.nvoxels[1]*mrc_header.nvoxels[2]
@@ -145,7 +151,7 @@ inline istream& operator >> (istream& mrc_file,
 
 
 inline ostream& operator << (ostream& mrc_file,
-                             const MrcSimple& tomo)
+                             MrcSimple& tomo)
 {
   tomo.Write(mrc_file);
   return mrc_file;
