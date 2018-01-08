@@ -71,7 +71,6 @@ class Settings {
   bool use_mask_select;
   int mask_out;
   bool use_mask_out;
-  int filter_halfwidth[3];
 
   float voxel_width; //width of each voxel in nm (assumed to be same for x,y,z)
   bool  voxel_width_divide_by_10 = false;
@@ -93,8 +92,9 @@ class Settings {
   
   FilterType filter_type;
 
-  float window_cutoff;
+  float window_threshold;
   float window_ratio;
+  float window_halfwidth[3];
 
   bool use_thresholds;
   bool use_dual_thresholds;

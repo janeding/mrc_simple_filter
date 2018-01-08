@@ -1,6 +1,7 @@
 #ifndef _FILTER3D_H
 #define _FILTER3D_H
 
+#include <cstring>
 #include <ostream>
 using namespace std;
 
@@ -134,19 +135,27 @@ public:
     }
   } //Filter3D::Apply()
 
-
-  void Resize(Integer const set_halfwidth[3]) {
+  void Alloc(Integer const set_halfwidth[3]) {
     Integer array_size[3];
-    if (af && aaafWeights) {
-      for(Integer d=0; d < 3; d++)
-        array_size[d] = 1 + 2*halfwidth[d];
-      Dealloc3D(array_size, &af, &aaafWeights);
-    }
     for(Integer d=0; d < 3; d++) {
       halfwidth[d] = set_halfwidth[d];
       array_size[d] = 1 + 2*halfwidth[d];
     }
     Alloc3D(array_size, &af, &aaafWeights);
+  }
+
+  void Dealloc() {
+    Integer array_size[3];
+    for(Integer d=0; d < 3; d++) {
+      array_size[d] = 1 + 2*halfwidth[d];
+      halfwidth[d] = -1;
+    }
+    Dealloc3D(array_size, &af, &aaafWeights);
+  }
+
+  void Resize(Integer const set_halfwidth[3]) {
+    Dealloc();
+    Alloc(set_halfwidth);
   }
 
   Filter3D(Integer const set_halfwidth[3]) {
@@ -164,10 +173,7 @@ public:
   }
 
   ~Filter3D() {
-    Integer array_size[3];
-    for(Integer d=0; d < 3; d++)
-      array_size[d] = 1 + 2*halfwidth[d];
-    Dealloc3D(array_size, &af, &aaafWeights);
+    Dealloc();
   }
 
   void Normalize() {
@@ -184,23 +190,24 @@ public:
           aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]
             /= total;
   }
+
+  inline Filter3D<RealNum, Integer>&
+    operator = (const Filter3D<RealNum, Integer>& source) {
+    Resize(source.halfwidth); // allocates and initializes af and aaafWeights
+    //for(Int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++)
+    //  for(Int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
+    //    for(Int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
+    //      aaafWeights[iz][iy][ix] = source.aaafWeights[iz][iy][ix];
+    // Use memcpy() instead:
+    memcpy(af,
+           source.af,
+           ((1+2*halfwidth[0]) * (1+2*halfwidth[1]) * (1+2*halfwidth[2]))
+           *sizeof(RealNum));
+  } // operator = ()
+
 }; // class Filter3D
 
 
-template<class RealNum, class Integer>
-inline Filter3D<RealNum, Integer>&
-operator = (const Filter3D<RealNum, Integer>& source) {
-  Dealloc(); // (just in case)
-  Resize(source.halfwidth); // allocates and initializes af and aaafWeights
-  //for(Int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++)
-  //  for(Int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++)
-  //    for(Int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++)
-  //      aaafWeights[iz][iy][ix] = source.aaafWeights[iz][iy][ix];
-  // Use memcpy() instead:
-  memcpy(af,
-         source.af,
-         ((1+2*halfwidth[0]) * (1+2*halfwidth[1]) * (1+2*halfwidth[2]))
-         *sizeof(RealNum));
-}
+
 
 #endif //#ifndef _FILTER3D_H

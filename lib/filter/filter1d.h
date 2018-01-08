@@ -1,8 +1,8 @@
 #ifndef _FILTER1D_H
 #define _FILTER1D_H
 
+#include <cstring>
 using namespace std;
-
 
 
 
@@ -92,13 +92,24 @@ public:
     }
   } //Filter1D::Apply()
 
-  void Resize(Integer set_halfwidth) {
-    if (afWeights)
-      delete [] afWeights;
+  void Alloc(Integer set_halfwidth) {
     halfwidth = set_halfwidth;
     Integer array_size = 1 + 2*halfwidth;
     afWeights = new RealNum [array_size];
   }
+
+  void Dealloc() {
+    if (afWeights)
+      delete [] afWeights;
+    halfwidth = -1;
+  }
+
+
+  void Resize(Integer set_halfwidth) {
+    Dealloc();
+    Alloc(set_halfwidth);
+  }
+
 
   Filter1D() {
     halfwidth = -1;
@@ -110,8 +121,9 @@ public:
   }
 
   ~Filter1D() {
-    delete [] afWeights;
+    Dealloc();
   }
+
 
   void Normalize() {
     // Make sure the sum of the filter weights is 1
@@ -122,20 +134,20 @@ public:
       afWeights[ix+halfwidth] /= total;
   }
 
+
+  inline Filter1D<RealNum, Integer>&
+    operator = (const Filter1D<RealNum, Integer>& source) {
+    Resize(source.halfwidth); // allocates and initializes af and aaafWeights
+    //for(Int ix=-halfwidth; ix<=halfwidth; ix++)
+    //  afWeights[ix] = source.afWeights[ix];
+    // Use memcpy() instead:
+    memcpy(afWeights,
+           source.afWeights,
+           (1+2*halfwidth) * sizeof(RealNum));
+  } // operator = ()
+
 }; // class Filter1D
 
 
-template<class RealNum, class Integer>
-inline Filter1D<RealNum, Integer>&
-operator = (const Filter1D<RealNum, Integer>& source) {
-  Dealloc(); // (just in case)
-  Resize(source.halfwidth); // allocates and initializes af and aaafWeights
-  //for(Int ix=-halfwidth; ix<=halfwidth; ix++)
-  //  afWeights[ix] = source.afWeights[ix];
-  // Use memcpy() instead:
-  memcpy(afWeights,
-         source.afWeights,
-         (1+2*halfwidth[0]) * sizeof(RealNum));
-}
 
 #endif //#ifndef _FILTER1D_H

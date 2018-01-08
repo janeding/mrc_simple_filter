@@ -30,23 +30,81 @@ template<class RealNum >
 inline RealNum MAX(RealNum x, RealNum y) { return ((x<y) ? y : x); }
 
 
-template<class RealNum, class Integer>
+template<class RealNum>
+// GenFilterGauss1D generates a 1-D filter and fills its array with values
+// corresponding to a normalized Gaussian evaluated at evenly spaced intervals.
+// The caller must specify the "sigma" parameter (width of the Gaussian,
+// in units of pixels/voxels), in addition to the "halfwidth" parameter, which
+// indicates the number of entries in the array (in units of pixels/voxels).
+Filter1D<RealNum, int>
+GenFilterGauss1D(RealNum sigma,     // The "sigma" paramgeter in the Gaussian
+                 int halfwidth) // number of entries in the filter array / 2
+{
+  Filter1D<RealNum, int> filter(halfwidth);
+
+  RealNum sum = 0.0;
+  for (int i=-halfwidth; i<=halfwidth; i++) {
+    if (sigma == 0.0) //(don't crash when sigma=0)
+      filter.afWeights[i+halfwidth] = ((i == 0) ? 1.0 : 0.0);
+    else
+      filter.afWeights[i+halfwidth] = exp(-0.5*(i*i)/(sigma*sigma));
+    sum += filter.afWeights[i+halfwidth];
+  }
+
+  //Normalize:
+  for (int i=-halfwidth; i<=halfwidth; i++)
+    filter.afWeights[i+halfwidth] /= sum;
+
+  return filter;
+} //GenFilterGauss1D(sigma, halfwidth)
+
+
+template<class RealNum>
+// This function generates a 1-D filter and fills its array with values
+// corresponding to a normalized Gaussian evaluated at evenly spaced intervals.
+// The caller must specify the "sigma" parameter (width of the Gaussian).
+// and a fractional number between 0 and 1 which indicate how far the
+// filter can decay.  Only voxels whose Gaussian intensity decays by less
+// than this threshold (relative to the central peak) will be kept.
+Filter1D<RealNum, int>
+GenFilterGauss1DThresh(RealNum sigma,
+                       RealNum window_threshold)
+{
+  // How wide should the filter be?
+  int halfwidth;
+  assert(window_threshold > 0.0);
+  // Choose the filter domain window based on the "filter_cutoff_threshold"
+  //    window_threshold = exp(-0.5*(halfwidth/sigma)^2);
+  //    -> (halfwidth/sigma)^2 = -2*log(window_threshold)
+  halfwidth = ceil(sigma * sqrt(-2*log(window_threshold)));
+
+  return GenFilterGauss1D(sigma, halfwidth);
+} //GenFilterGauss1D(sigma, window_threshold)
+
+
+
+template<class RealNum>
 // Create a 2-D filter and fill it with a "generalized Gaussian" function:
 //    h_xy(r) = A*exp(-r^m)
 // where   r  = sqrt((x/s_x)^2 + (y/s_y)^2)
 //   and   A  is determined by normalization of the discrete sum
 // Note: "A" is equal to the value stored in the middle of the array,
 //       The caller can determine what "A" is by looking at this value.
-Filter2D<RealNum, Integer>
+Filter2D<RealNum, int>
 GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
                     RealNum m_exp,       //"m" exponent parameter
-                    Integer halfwidth[2],
-                    RealNum window_threshold=-1.0) //optional: eliminate corners
+                    int halfwidth[2])
 {
-  Filter2D<RealNum, Integer> filter(halfwidth);
+  RealNum window_threshold = 1.0;
+  for (int d=0; d<2; d++) {
+    RealNum h = ((width[d]>0) ? exp(-pow(halfwidth[d], m_exp)) : 1.0);
+    if (h < window_threshold)
+      window_threshold = h;
+  }
+  Filter2D<RealNum, int> filter(halfwidth);
   RealNum total = 0;
-  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
-    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+  for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
       RealNum r = sqrt(SQR(ix/width[0]) + SQR(iy/width[1]));
       RealNum h = ((r>0) ? exp(-pow(r, m_exp)) : 1.0);
       if (ABS(h) < window_threshold)
@@ -55,101 +113,73 @@ GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
       total += h;
     }
   }
-  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
-    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+  // normalize:
+  for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
       filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] /= total;
     }
   }
-  return 1.0 / total;
-} //GenFilterGenGauss2D()
+  return filter;
+} //GenFilterGenGauss2D(width, m_exp, halfwidth, window_thresh)
 
 
-Filter2D<RealNum, Integer>
-GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
-                    RealNum m_exp,       //"m" parameter in formula
-                    RealNum window_threshold) //controls window width
+template<class RealNum>
+Filter2D<RealNum, int>
+GenFilterGenGauss2DThresh(RealNum width[2],    //"s_x", "s_y" parameters
+                          RealNum m_exp,       //"m" parameter in formula
+                          RealNum window_threshold) //controls window width
 {
   // choose the filter window width based on the window_threshold
-  Integer halfwidth[2];
-  Real hmax = 1.0;
-  Integer ix = 0;
+  int halfwidth[2];
+  int ix = 0;
+
   for (int d=0; d<2; d++) {
-    while (1) {
-      // Start at the central peak and move until it decays below threshold.
-      // Too lazy to do this the less stupid way. hopefully easy to understand
-      RealNum h = exp(-pow(ix/width[d], m_exp));
-      if (h < window_threshold) {
-        halfwidth[d] = ix;
-        break;
-      }
-    }
+    // Choose the filter domain window based on the "filter_cutoff_threshold"
+    //    window_threshold = exp(-(halfwidth/sigma)^m_exp);
+    //    -> (halfwidth/sigma)^m_exp = -log(window_threshold)
+    halfwidth[d] = ceil(width[d] * pow(-log(window_threshold), 1.0/m_exp));
   }
   return GenFilterGenGauss2D(width,
                              m_exp,
-                             halfwidth,
-                             window_threshold);
-}
+                             halfwidth);
+} //GenFilterGenGauss2DThresh(width, m_exp, window_thresh)
 
-template<class RealNum, class Integer>
+
+template<class RealNum>
 // Create a 2-D filter and fill it with a difference of (generalized) Gaussians:
-Filter2D<RealNum, Integer> 
-GenFilterGenDog2D(RealNum width_a[2],  //"a" parameter in formula
-                  RealNum width_b[2],  //"b" parameter in formula
-                  RealNum m_exp,  //"m" parameter in formula
-                  RealNum n_exp,  //"n" parameter in formula
-                  RealNum window_ratio=2.5,      //controls window width
-                  RealNum window_threshold=-1.0, //controls window width
-                  RealNum *pA=NULL, //optional:report A,B coeffs to user
-                  RealNum *pB=NULL) //optional:report A,B coeffs to user
+// This version requires that the caller has already created individual
+// filters for the two gaussians.
+// All this function does is subtract one filter from the other (and rescale).
+Filter2D<RealNum, int> 
+_GenFilterGenDog2D(RealNum width_a[2],  //"a" parameter in formula
+                   RealNum width_b[2],  //"b" parameter in formula
+                   RealNum m_exp,  //"m" parameter in formula
+                   RealNum n_exp,  //"n" parameter in formula
+                   Filter2D<RealNum, int>& filterXY_A, //filters for the two
+                   Filter2D<RealNum, int>& filterXY_B, //gaussians
+                   RealNum *pA=NULL, //optional:report A,B coeffs to user
+                   RealNum *pB=NULL) //optional:report A,B coeffs to user
 {
-  Filter2D<RealNum, Integer> filter;
-
-  if (window_threshold <= 0.0) {
-    if (window_ratio > 0.0) {
-      window_threshold = 1.0;
-      // Optional:
-      // Set the filter to zero whenever the value decays below "threshold"
-      // Make sure "cutoff" is compatible with the cutoffs in the x,y directions
-      // This gives the filter a round shape (instead of a rectangular shape).
-      RealNum ha = exp(-pow(window_ratio, m_exp));
-      RealNum hb = exp(-pow(window_ratio, n_exp));
-      RealNum habmax = MAX(ha, hb);
-      if (habmax < window_threshold)
-        window_threshold = h;
-
-      if (habmax < window_threshold)
-        window_threshold = h;
-    }
-  }
-
-  filterXY_A =
-    GenFilterGenGauss2D(width_a,      //"a_x", "a_y" gaussian width parameters
-                        m_exp,        //"n" exponent parameter
-                        window_threshold);
-
-  filterXY_B =
-    GenFilterGenGauss2D(width_b,      //"b_x", "b_y" gaussian width parameters
-                        n_exp,        //"n" exponent parameter
-                        window_threshold);
   RealNum A, B;
   //A, B = height of the central peak
+  //       The central peak is located in the middle of the filter's array
+  //       (at position "halfwidth")
   A = filterXY_A.aafWeights[filterXY_A.halfwidth[0]][filterXY_A.halfwidth[1]];
   B = filterXY_B.aafWeights[filterXY_B.halfwidth[0]][filterXY_B.halfwidth[1]];
 
 
   // The "difference of gaussians" filter is the difference between
   // these two (generalized) gaussian filters.
-  Integer halfwidth[2];
+  int halfwidth[2];
   halfwidth[0] = MAX(filterXY_A.halfwidth[0], filterXY_B.halfwidth[0]);
   halfwidth[1] = MAX(filterXY_A.halfwidth[1], filterXY_B.halfwidth[1]);
-  Filter2D<RealNum, Integer> filter(halfwidth);
+  Filter2D<RealNum, int> filter(halfwidth);
 
-  // (We also rescale the filter upwards by 1.0/(A-B) to insure that the central
-  //  peak has height 1.  (The total area under the filter will be 0)).
   cerr << "Array of 2D filter entries:" << endl;
-  for (Integer iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
-    for (Integer ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+  for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+    for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
       filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] = 0.0;
+
       // The two filters may have different widths, so we have to check
       // that ix and iy lie within the domain of these two filters before
       // adding or subtracting their values from the final DOG filter.
@@ -167,76 +197,92 @@ GenFilterGenDog2D(RealNum width_a[2],  //"a" parameter in formula
           filterXY_B.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] / (A - B);
 
 
-      cerr << "aafWeights["<<iy<<"]["<<ix<<"] = " << aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
+      cerr << "aafWeights["<<iy<<"]["<<ix<<"] = " << filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
       //cerr << aafWeights[iy+halfwidth[1]][ix+halfwidth[0]];
       //if (ix == halfwidth[0]) cerr << "\n"; else cerr << " ";
-    }
-  }
+
+    } // for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+  } // for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+
   cerr << "\n";
 
   if (pA && pB) {
-    *pA = A/(A-B); // Rescale A and B so that the central peak has height 1
-    *pB = B/(A-B);
+    *pA = A/(A-B); // Rescale A and B numbers returned to the caller
+    *pB = B/(A-B); // (because we divided the array entries by (A-B) earlier)
   }
   return filter;
-} //GenFilterGenDog2D()
+} //_GenFilterGenDog2D()
 
 
-template<class RealNum, class Integer>
-// GenFilterGauss1D generates a 1-D filter and fills its array with values
-// corresponding to a normalized Gaussian evaluated at evenly spaced intervals.
-// The caller must specify the "sigma" parameter (width of the Gaussian,
-// in units of pixels/voxels), in addition to the "halfwidth" parameter, which
-// indicates the number of entries in the array (in units of pixels/voxels).
-Filter1D<RealNum, Integer>
-GenFilterGauss1D(RealNum sigma,     // The "sigma" paramgeter in the Gaussian
-                 Integer halfwidth) // number of entries in the filter array / 2
+
+template<class RealNum>
+// Create a 2-D filter and fill it with a difference of (generalized) Gaussians:
+Filter2D<RealNum, int> 
+GenFilterGenDog2D(RealNum width_a[2],  //"a" parameter in formula
+                  RealNum width_b[2],  //"b" parameter in formula
+                  RealNum m_exp,       //"m" parameter in formula
+                  RealNum n_exp,       //"n" parameter in formula
+                  int halfwidth[2],
+                  RealNum *pA=NULL, //optional:report A,B coeffs to user
+                  RealNum *pB=NULL) //optional:report A,B coeffs to user
 {
-  Filter1D<RealNum, Integer> filter.Resize(halfwidth);
+  Filter2D<RealNum, int> filterXY_A =
+    GenFilterGenGauss2D(width_a,      //"a_x", "a_y" gaussian width parameters
+                        m_exp,        //"n" exponent parameter
+                        halfwidth);
 
-  RealNum sum = 0.0;
-  for (Integer i=-halfwidth; i<=halfwidth; i++) {
-    if (sigma == 0.0) //(don't crash when sigma=0)
-      filter_dest.afWeights[i+halfwidth] = ((i == 0) ? 1.0 : 0.0);
-    else
-      afWeights[i+halfwidth] = exp(-0.5*(i*i)/(sigma*sigma));
-    sum += filter_dest.afWeights[i+halfwidth];
-  }
+  Filter2D<RealNum, int> filterXY_B =
+    GenFilterGenGauss2D(width_b,      //"b_x", "b_y" gaussian width parameters
+                        n_exp,        //"n" exponent parameter
+                        halfwidth);
 
-  //Normalize:
-  for (Integer i=-halfwidth; i<=halfwidth; i++)
-    filter_dest.afWeights[i+halfwidth] /= sum;
-} //GenFilterGauss1D(sigma, halfwidth)
+  return _GenFilterGenDog2D(width_a,
+                            width_b,
+                            m_exp,
+                            n_exp,
+                            filterXY_A, filterXY_B,
+                            pA,
+                            pB);
+} //GenFilterGenDog2D(...halfwidth...)
 
-
-template<class RealNum, class Integer>
-// GenFilterGauss1D generates a 1-D filter and fills its array with values
-// corresponding to a normalized Gaussian evaluated at evenly spaced intervals.
-// The caller must specify the "sigma" parameter (width of the Gaussian).
-// and a fractional number between 0 and 1 which indicate how far the
-// filter can decay.  Only voxels whose Gaussian intensity decays by less
-// than this threshold (relative to the central peak) will be kept.
-Filter1D<RealNum, Integer>
-GenFilterGauss1D(RealNum sigma,
-                 RealNum window_threshold)
+template<class RealNum>
+// Create a 2-D filter and fill it with a difference of (generalized) Gaussians:
+Filter2D<RealNum, int> 
+GenFilterGenDog2DThresh(RealNum width_a[2],  //"a" parameter in formula
+                        RealNum width_b[2],  //"b" parameter in formula
+                        RealNum m_exp,       //"m" parameter in formula
+                        RealNum n_exp,       //"n" parameter in formula
+                        RealNum window_threshold, //controls filter window width
+                        RealNum *pA=NULL, //optional:report A,B coeffs to user
+                        RealNum *pB=NULL) //optional:report A,B coeffs to user
 {
-  // How wide should the filter be?
-  Integer halfwidth;
-  assert(window_threshold > 0.0);
-  // Choose the filter domain width based on the "filter_cutoff_threshold"
-  //    threshold = exp(-0.5*(halfwidth/sigma)^2);
-  //    -> (halfwidth/sigma)^2 = -2*log(threshold)
-  halfwidth = ceil(sigma * sqrt(-2*log(threshold)));
+  Filter2D<RealNum, int> filterXY_A =
+    GenFilterGenGauss2DThresh(width_a, //"a_x", "a_y" gaussian width parameters
+                              m_exp,   //"m" exponent parameter
+                              window_threshold);
 
-  return GenFilterGauss1D(sigma, halfwidth);
+  Filter2D<RealNum, int> filterXY_B =
+    GenFilterGenGauss2DThresh(width_b, //"b_x", "b_y" gaussian width parameters
+                              n_exp,   //"n" exponent parameter
+                              window_threshold);
 
-} //GenFilterGauss1D(sigma, window_threshold)
+  return _GenFilterGenDog2D(width_a,
+                            width_b,
+                            m_exp,
+                            n_exp,
+                            filterXY_A, filterXY_B,
+                            pA,
+                            pB);
+} //GenFilterGenDog2DThresh(...window_threshold...)
 
 
-template<class RealNum, class Integer>
+
+
+
+template<class RealNum>
 RealNum
 _ApplyGauss3D(Filter1D<float, int> aFilter[3],
-              Integer const image_size[3], 
+              int const image_size[3], 
               RealNum ***aaafSource,
               RealNum ***aaafDest,
               RealNum ***aaafMask)
@@ -280,9 +326,9 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
   //  store the result of each successive filter operation. 
   //  Instead just store the most recent filter operation in aaafDest,
   //  and perform each operation on whatever's currently in aaafDest.)
-  for (Integer iz = 0; iz < image_size[2]; iz++)
-    for (Integer iy = 0; iy < image_size[1]; iy++)
-      for (Integer ix = 0; ix < image_size[0]; ix++)
+  for (int iz = 0; iz < image_size[2]; iz++)
+    for (int iy = 0; iy < image_size[1]; iy++)
+      for (int ix = 0; ix < image_size[0]; ix++)
         aaafDest[iz][iy][ix] = aaafSource[iz][iy][ix];
 
 
@@ -292,11 +338,11 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
   // Apply the filter in the Z direction (d=2):
   d = 2;
   cerr << "  progress: Applying Z filter. Processing Y plane#" << endl;
-  for (Integer iy = 0; iy < image_size[1]; iy++) {
+  for (int iy = 0; iy < image_size[1]; iy++) {
     cerr << "  " << iy+1 << " / " << image_size[1] << "\n";
-    for (Integer ix = 0; ix < image_size[0]; ix++) {
+    for (int ix = 0; ix < image_size[0]; ix++) {
       // copy the data we need to the temporary array
-      for (Integer iz = 0; iz < image_size[2]; iz++) {
+      for (int iz = 0; iz < image_size[2]; iz++) {
         aafSource[d][iz] = aaafDest[iz][iy][ix];  // copy from aaafDest
         if (aaafMask)
           aafMask[d][iz] = aaafMask[iz][iy][ix];
@@ -307,20 +353,20 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
                        aafDest[d],
                        aafMask[d]);
                        //precompute_mask_times_source);
-      for (Integer iz = 0; iz < image_size[d]; iz++)
+      for (int iz = 0; iz < image_size[d]; iz++)
         aaafDest[iz][iy][ix] = aafDest[d][iz];  // copy back into aaafDest
-    } //for (Integer ix = 0; ix < image_size[0]; ix++)
-  } //for (Integer iy = 0; iy < image_size[1]; iy++)
+    } //for (int ix = 0; ix < image_size[0]; ix++)
+  } //for (int iy = 0; iy < image_size[1]; iy++)
 
 
   // Apply the filter in the Y direction:
   d=1;
   cerr << "  progress: Applying Y filter. Processing Z plane#" << endl;
-  for (Integer iz = 0; iz < image_size[2]; iz++) {
+  for (int iz = 0; iz < image_size[2]; iz++) {
     cerr << "  " << iz+1 << " / " << image_size[2] << "\n";
-    for (Integer ix = 0; ix < image_size[0]; ix++) {
+    for (int ix = 0; ix < image_size[0]; ix++) {
       // copy the data we need to the temporary array
-      for (Integer iy = 0; iy < image_size[1]; iy++) {
+      for (int iy = 0; iy < image_size[1]; iy++) {
         aafSource[d][iy] = aaafDest[iz][iy][ix]; //data from previous aaafDest
         if (aaafMask)
           aafMask[d][iy] = aaafMask[iz][iy][ix];
@@ -331,19 +377,19 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
                        aafDest[d],
                        aafMask[d]);
                        //precompute_mask_times_source);
-      for (Integer iy = 0; iy < image_size[d]; iy++)
+      for (int iy = 0; iy < image_size[d]; iy++)
         aaafDest[iz][iy][ix] = aafDest[d][iy];  // copy back into aaafDest
-    } //for (Integer ix = 0; ix < image_size[0]; ix++) {
-  } //for (Integer iz = 0; iz < image_size[2]; iz++)
+    } //for (int ix = 0; ix < image_size[0]; ix++) {
+  } //for (int iz = 0; iz < image_size[2]; iz++)
 
   // Apply the filter in the X direction:
   d=0;
   cerr << "  progress: Applying X filter. Processing Z plane#" << endl;
-  for (Integer iz = 0; iz < image_size[2]; iz++) {
+  for (int iz = 0; iz < image_size[2]; iz++) {
     cerr << "  " << iz+1 << " / " << image_size[2] << "\n";
-    for (Integer iy = 0; iy < image_size[1]; iy++) {
+    for (int iy = 0; iy < image_size[1]; iy++) {
       // copy the data we need to the temporary array
-      for (Integer ix = 0; ix < image_size[0]; ix++) {
+      for (int ix = 0; ix < image_size[0]; ix++) {
         aafSource[d][ix] = aaafDest[iz][iy][ix]; //data from previous aaafDest
         if (aaafMask)
           aafMask[d][ix] = aaafMask[iz][iy][ix];
@@ -354,10 +400,10 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
                        aafDest[d],
                        aafMask[d]);
                        //precompute_mask_times_source);
-      for (Integer ix = 0; ix < image_size[d]; ix++)
+      for (int ix = 0; ix < image_size[d]; ix++)
         aaafDest[iz][iy][ix] = aafDest[d][ix];  // copy back into aaafDest
-    } //for (Integer iy = 0; iy < image_size[1]; iy++)
-  } //for (Integer iz = 0; iz < image_size[2]; iz++)
+    } //for (int iy = 0; iy < image_size[1]; iy++)
+  } //for (int iz = 0; iz < image_size[2]; iz++)
 
   // delete the temporary arrays
   for (int d=0; d<3; d++) {
@@ -369,16 +415,16 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
   delete [] aFilter;
 
   return A_coeff;
-} //ApplyGauss3D()
+} //_ApplyGauss3D(aFilter)
 
 
 
 
-template<class RealNum, class Integer>
+template<class RealNum>
 RealNum
 ApplyGauss3D(RealNum const sigma[3],
-             Integer const window_halfwidth[3],
-             Integer const image_size[3], 
+             int const window_halfwidth[3],
+             int const image_size[3], 
              RealNum ***aaafSource,
              RealNum ***aaafDest,
              RealNum ***aaafMask)
@@ -413,12 +459,11 @@ ApplyGauss3D(RealNum const sigma[3],
 } //ApplyGauss3D(sigma, window_halfwidth, ...)
 
 
-template<class RealNum, class Integer>
+template<class RealNum>
 RealNum
 ApplyGauss3D(RealNum const sigma[3],
-             RealNum window_ratio,
              RealNum window_threshold,
-             Integer const image_size[3], 
+             int const image_size[3], 
              RealNum ***aaafSource,
              RealNum ***aaafDest,
              RealNum ***aaafMask)
@@ -429,11 +474,8 @@ ApplyGauss3D(RealNum const sigma[3],
   //assert(aaafMask);
   //Allocate filters in all 3 directions.  (Later apply them sequentially.)
   Filter1D<float, int> *aFilter = new Filter1D<float, int> [3];
-  for (int d=0; d < 3; d++) {
-    aFilter[d] = GenFilterGauss1D(sigma[d],
-                                  window_ratio,
-                                  window_threshold);
-  }
+  for (int d=0; d < 3; d++)
+    aFilter[d] = GenFilterGauss1DThresh(sigma[d], window_threshold);
 
   return _ApplyGauss3D(aFilter,
                        image_size, 
@@ -442,7 +484,8 @@ ApplyGauss3D(RealNum const sigma[3],
                        aaafMask);
                        //precompute_mask_times_source)
   delete [] aFilter;
-} //ApplyGauss3D(sigma, window_ratio, window_threshold, ...)
+} //ApplyGauss3D(sigma, window_threshold, ...)
+
 
 
 
@@ -528,19 +571,16 @@ int main(int argc, char **argv) {
     for (int d=0; d<3; d++) {
       settings.width_a[d] /= voxel_width[d];
       settings.width_b[d] /= voxel_width[d];
-      //settings.window_ratio /= voxel_width[d];
-      //settings.window_dog[d] /= voxel_width[d];
-      //settings.window_gauss[d] /= voxel_width[d];
-      settings.window_halfwidth[d] = ceil(settings.window_ratio * 
-                                          MAX(settings.width_a[d],
-                                              settings.width_b[d]));
+      //settings.window_halfwidth[d] = ceil(settings.window_ratio * 
+      //                                    MAX(settings.width_a[d],
+      //                                        settings.width_b[d]));
     }
 
-    cerr << "applying filter (window size in voxels: "
-         << 1 + 2*settings.window_halfwidth[0] << ","
-         << 1 + 2*settings.window_halfwidth[1] << ","
-         << 1 + 2*settings.window_halfwidth[2] << ")"
-         << " ..." << endl;
+    //cerr << "applying filter (window size in voxels: "
+    //     << 1 + 2*settings.window_halfwidth[0] << ","
+    //     << 1 + 2*settings.window_halfwidth[1] << ","
+    //     << 1 + 2*settings.window_halfwidth[2] << ")"
+    //     << " ..." << endl;
 
     if (settings.filter_type == Settings::NONE) {
       cerr << "filter_type = Intensity Map <No convolution filter specified>\n";
@@ -557,9 +597,16 @@ int main(int argc, char **argv) {
 
       float A; // let the user know what A coefficient was used
 
-      if (settings.window_halfwidth[0] > 0)
+      int window_halfwidth[3] = {-1, -1, -1};
+      if (settings.window_ratio > 0)
+        for (int d=0; d < 3; d++)
+          window_halfwidth[d] = ceil(settings.width_a[d] *
+                                     settings.window_ratio);
+
+      // Convolve the original source with the 1st Gaussian
+      if (window_halfwidth[0] > 0)
         A = ApplyGauss3D(settings.width_a,
-                         settings.window_halfwidth,
+                         window_halfwidth,
                          tomo_in.mrc_header.nvoxels,
                          tomo_in.aaafDensity,
                          tomo_out.aaafDensity,
@@ -604,10 +651,18 @@ int main(int argc, char **argv) {
 
       float A, B;        // let the user know what A B coefficients were used
 
+      int window_halfwidth[3] = {-1, -1, -1};
+      if (settings.window_ratio > 0)
+        for (int d=0; d < 3; d++)
+          window_halfwidth[d] = ceil(settings.window_ratio *
+                                     MAX(settings.width_a[d],
+                                         settings.width_b[d]));
+                                     
+
       // Convolve the original source with the 1st Gaussian
-      if (settings.window_halfwidth[0] > 0) {
+      if (window_halfwidth[0] > 0)
         A = ApplyGauss3D(settings.width_a,
-                         settings.window_halfwidth,
+                         window_halfwidth,
                          tomo_in.mrc_header.nvoxels,
                          tomo_in.aaafDensity,
                          tomo_out.aaafDensity,
@@ -625,9 +680,9 @@ int main(int argc, char **argv) {
         assert(false);
 
       // Convolve the original source with the 2nd Gaussian
-      if (settings.window_halfwidth[0] > 0) {
+      if (window_halfwidth[0] > 0)
         B = ApplyGauss3D(settings.width_b,
-                         settings.window_halfwidth,
+                         window_halfwidth,
                          tomo_in.mrc_header.nvoxels,
                          tomo_in.aaafDensity,
                          tomo_out.aaafDensity,
@@ -685,27 +740,12 @@ int main(int argc, char **argv) {
 
     else if (settings.filter_type == Settings::DOGGEN) {
       cerr << "filter_type = Generalized Difference of Gaussians (DOGGEN)\n";
-      // Optional:
-      // Set the filter to zero whenever the value decays below "window_threshold"
-      // Make sure "window_threshold" is compatible with the window_thresholds in the x,y directions
-      // This gives the filter a round shape (instead of a rectangular shape).
-      float window_threshold = 1.0;
-      if (settings.window_ratio > 0.0) {
-        for (int d=0; d<3; d++) {
-          float h;
-          if (settings.width_a[d] > settings.width_b[d])
-            h = exp(-pow(settings.window_ratio, settings.m_exp));
-          else
-            h = exp(-pow(settings.window_ratio, settings.n_exp));
-          if (h < window_threshold)
-            window_threshold = h;
-        }
-      }
+
       throw InputErr("Error: The general 3-D DOG filter (supporting exponents m,n!=2)\n"
                      "       has not been implemented yet.\n"
                      "      (However implementing should be trivial to do.\n"
                      "       Edit the code to define a functions \"GenFilterGenDog3D()\" and\n"
-                     "       GenFilterGenGause3D This should be easy. They will be nearly identical\n"
+                     "       GenFilterGenGauss3D This should be easy. They will be nearly identical\n"
                      "       to the functions \"GenFilterGenDog2D()\" and \"GenFilterGenGauss2D()\")\n"
                      "For now, you can use an ordinary 3-D DOG filter with default exponents m=n=2.\n");
 
@@ -714,7 +754,6 @@ int main(int argc, char **argv) {
       //                  settings.width_b,  //"b" parameter in formula
       //                  settings.m_exp,    //"m" parameter in formula
       //                  settings.n_exp,    //"n" parameter in formula
-      //                  settings.window_ratio,
       //                  settings.window_threshold,
       //                  &A,
       //                  &B);
@@ -753,27 +792,57 @@ int main(int argc, char **argv) {
 
       // First, generate the filter in the Z direction:
 
+      int window_halfwidthZ = -1;
+      if (settings.window_ratio > 0.0)
+        window_halfwidthZ = ceil(settings.width_a[2] *
+                                 settings.window_ratio);
+
       Filter1D<float, int> filterZ;
-      if (settings.window_halfwidth[0] > 0)
+      if (window_halfwidthZ > 0)
         filterZ = GenFilterGauss1D(settings.width_a[2],
-                                   settings.window_halfwidth);
-      else if (settings.window_threshold > 0.0)
+                                   window_halfwidthZ);
+      else if (settings.window_threshold > 0.0) {
+        window_halfwidthZ = ceil(settings.width_a[2] *
+                                 sqrt(-2*log(settings.window_threshold)));
         filterZ = GenFilterGauss1D(settings.width_a[2],
-                                   settings.window_threshold);
+                                   window_halfwidthZ);
+      }
+
 
       // Then generate the filter in the XY directions
 
+      Filter2D<float, int> filterXY;
       float A, B;       // let the user know what A B coefficients were used
 
-      Filter2D<float, int> filterXY = 
-      GenFilterGenDog2D(settings.width_a,  //"a" parameter in formula
-                        settings.width_b,  //"b" parameter in formula
-                        settings.m_exp,    //"m" parameter in formula
-                        settings.n_exp,    //"n" parameter in formula
-                        settings.window_ratio,
-                        settings.window_threshold,
-                        &A,
-                        &B);
+      if (settings.window_ratio > 0.0) {
+        // If the user did not specify the width of the filters explicitly,
+        // then, determine the filter window size (filter width) from the
+        // "window_ratio" parameters which are distances expressed
+        // as multiples of the widths of the gaussians (a and b parameters)
+        int window_halfwidth[2];
+        for (int d=0; d < 2; d++)
+          window_halfwidth[d] = ceil(settings.window_ratio *
+                                     MAX(settings.width_a[d],
+                                         settings.width_b[d]));;
+                                     
+        filterXY = GenFilterGenDog2D(settings.width_a,//"a" parameter in formula
+                                     settings.width_b,//"b" parameter in formula
+                                     settings.m_exp,  //"m" parameter in formula
+                                     settings.n_exp,  //"n" parameter in formula
+                                     window_halfwidth,
+                                     &A,
+                                     &B);
+      } //else if (settings.window_ratio > 0.0)
+      else if (settings.window_threshold > 0)
+        filterXY = GenFilterGenDog2DThresh(settings.width_a,//"a" parameter
+                                     settings.width_b,//"b" parameter in formula
+                                     settings.m_exp,  //"m" parameter in formula
+                                     settings.n_exp,  //"n" parameter in formula
+                                     settings.window_threshold,
+                                     &A,
+                                     &B);
+      else
+        assert(false);      
 
       // Precompute the effect of the filter in the Z direction.
 
