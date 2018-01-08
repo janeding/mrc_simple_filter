@@ -28,6 +28,12 @@ if sys.argv[1] == '-gauss':
         raise InputError('Error: Expected 2 numeric arguments following \"'+sys.argv[1]+'\"\n')
     A = float(sys.argv[i+1])
     a = float(sys.argv[i+2])
+    # By default, we assume the user wants us to plot:
+    #   h(r) = A*exp(-0.5*(r/a)^2)
+    # Since this script instead plots
+    #   h(r) = A*exp(-(r/a)^m)
+    # so we absorb the factor of sqrt(0.5) into "a":
+    a *= sqrt(2.0)
     m = 2.0
     n = 2.0
     B = 0.0

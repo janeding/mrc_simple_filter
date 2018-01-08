@@ -117,6 +117,7 @@ public:
   }
 
   Filter1D(Integer halfwidth) {
+    afWeights = NULL;
     Resize(halfwidth);
   }
 

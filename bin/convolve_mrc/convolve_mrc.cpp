@@ -52,9 +52,11 @@ GenFilterGauss1D(RealNum sigma,     // The "sigma" paramgeter in the Gaussian
   }
 
   //Normalize:
-  for (int i=-halfwidth; i<=halfwidth; i++)
+  for (int i=-halfwidth; i<=halfwidth; i++) {
     filter.afWeights[i+halfwidth] /= sum;
-
+    cerr <<"afWeights["<<i<<"] = "  //FOR DEBUGGING REMOVE EVENTUALLY
+         << filter.afWeights[i+halfwidth] << endl;
+  }
   return filter;
 } //GenFilterGauss1D(sigma, halfwidth)
 
@@ -76,7 +78,7 @@ GenFilterGauss1DThresh(RealNum sigma,
   // Choose the filter domain window based on the "filter_cutoff_threshold"
   //    window_threshold = exp(-0.5*(halfwidth/sigma)^2);
   //    -> (halfwidth/sigma)^2 = -2*log(window_threshold)
-  halfwidth = ceil(sigma * sqrt(-2*log(window_threshold)));
+  halfwidth = floor(sigma * sqrt(-2*log(window_threshold)));
 
   return GenFilterGauss1D(sigma, halfwidth);
 } //GenFilterGauss1D(sigma, window_threshold)
@@ -97,7 +99,7 @@ GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
 {
   RealNum window_threshold = 1.0;
   for (int d=0; d<2; d++) {
-    RealNum h = ((width[d]>0) ? exp(-pow(halfwidth[d], m_exp)) : 1.0);
+    RealNum h = ((width[d]>0) ? exp(-pow(halfwidth[d]/width[d], m_exp)) : 1.0);
     if (h < window_threshold)
       window_threshold = h;
   }
@@ -109,7 +111,12 @@ GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
       RealNum h = ((r>0) ? exp(-pow(r, m_exp)) : 1.0);
       if (ABS(h) < window_threshold)
         h = 0.0; // this eliminates corner entries which fall below threshold
+                 // (and eliminates anisotropic artifacts due to these corners)
+                 // There's no reason to keep any entries less than min value.
       filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] = h;
+      cerr << "threshold=" << window_threshold
+           <<", aafWeights["<<iy<<"]["<<ix<<"] = "
+           << filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
       total += h;
     }
   }
@@ -137,7 +144,7 @@ GenFilterGenGauss2DThresh(RealNum width[2],    //"s_x", "s_y" parameters
     // Choose the filter domain window based on the "filter_cutoff_threshold"
     //    window_threshold = exp(-(halfwidth/sigma)^m_exp);
     //    -> (halfwidth/sigma)^m_exp = -log(window_threshold)
-    halfwidth[d] = ceil(width[d] * pow(-log(window_threshold), 1.0/m_exp));
+    halfwidth[d] = floor(width[d] * pow(-log(window_threshold), 1.0/m_exp));
   }
   return GenFilterGenGauss2D(width,
                              m_exp,
@@ -187,16 +194,17 @@ _GenFilterGenDog2D(RealNum width_a[2],  //"a" parameter in formula
           ((-filterXY_A.halfwidth[1]<=iy) && (iy<=filterXY_A.halfwidth[1])))
 
         filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] +=
-          filterXY_A.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] / (A - B);
+          filterXY_A.aafWeights[iy+filterXY_A.halfwidth[1]][ix+filterXY_A.halfwidth[0]] / (A - B);
       // (The factor of 1/(A-B) insures that the central peak has height 1)
 
       if (((-filterXY_B.halfwidth[0]<=ix) && (ix<=filterXY_B.halfwidth[0])) &&
           ((-filterXY_B.halfwidth[1]<=iy) && (iy<=filterXY_B.halfwidth[1])))
 
         filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] -=
-          filterXY_B.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] / (A - B);
+          filterXY_B.aafWeights[iy+filterXY_B.halfwidth[1]][ix+filterXY_B.halfwidth[0]] / (A - B);
 
 
+      //FOR DEBUGGING REMOVE EVENTUALLY
       cerr << "aafWeights["<<iy<<"]["<<ix<<"] = " << filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
       //cerr << aafWeights[iy+halfwidth[1]][ix+halfwidth[0]];
       //if (ix == halfwidth[0]) cerr << "\n"; else cerr << " ";
@@ -571,7 +579,7 @@ int main(int argc, char **argv) {
     for (int d=0; d<3; d++) {
       settings.width_a[d] /= voxel_width[d];
       settings.width_b[d] /= voxel_width[d];
-      //settings.window_halfwidth[d] = ceil(settings.window_ratio * 
+      //settings.window_halfwidth[d] = floor(settings.window_ratio * 
       //                                    MAX(settings.width_a[d],
       //                                        settings.width_b[d]));
     }
@@ -600,8 +608,8 @@ int main(int argc, char **argv) {
       int window_halfwidth[3] = {-1, -1, -1};
       if (settings.window_ratio > 0)
         for (int d=0; d < 3; d++)
-          window_halfwidth[d] = ceil(settings.width_a[d] *
-                                     settings.window_ratio);
+          window_halfwidth[d] = floor(settings.width_a[d] *
+                                      settings.window_ratio);
 
       // Convolve the original source with the 1st Gaussian
       if (window_halfwidth[0] > 0)
@@ -654,9 +662,9 @@ int main(int argc, char **argv) {
       int window_halfwidth[3] = {-1, -1, -1};
       if (settings.window_ratio > 0)
         for (int d=0; d < 3; d++)
-          window_halfwidth[d] = ceil(settings.window_ratio *
-                                     MAX(settings.width_a[d],
-                                         settings.width_b[d]));
+          window_halfwidth[d] = floor(settings.window_ratio *
+                                      MAX(settings.width_a[d],
+                                          settings.width_b[d]));
                                      
 
       // Convolve the original source with the 1st Gaussian
@@ -794,16 +802,16 @@ int main(int argc, char **argv) {
 
       int window_halfwidthZ = -1;
       if (settings.window_ratio > 0.0)
-        window_halfwidthZ = ceil(settings.width_a[2] *
-                                 settings.window_ratio);
+        window_halfwidthZ = floor(settings.width_a[2] *
+                                  settings.window_ratio);
 
       Filter1D<float, int> filterZ;
       if (window_halfwidthZ > 0)
         filterZ = GenFilterGauss1D(settings.width_a[2],
                                    window_halfwidthZ);
       else if (settings.window_threshold > 0.0) {
-        window_halfwidthZ = ceil(settings.width_a[2] *
-                                 sqrt(-2*log(settings.window_threshold)));
+        window_halfwidthZ = floor(settings.width_a[2] *
+                                  sqrt(-2*log(settings.window_threshold)));
         filterZ = GenFilterGauss1D(settings.width_a[2],
                                    window_halfwidthZ);
       }
@@ -821,9 +829,9 @@ int main(int argc, char **argv) {
         // as multiples of the widths of the gaussians (a and b parameters)
         int window_halfwidth[2];
         for (int d=0; d < 2; d++)
-          window_halfwidth[d] = ceil(settings.window_ratio *
-                                     MAX(settings.width_a[d],
-                                         settings.width_b[d]));;
+          window_halfwidth[d] = floor(settings.window_ratio *
+                                      MAX(settings.width_a[d],
+                                          settings.width_b[d]));;
                                      
         filterXY = GenFilterGenDog2D(settings.width_a,//"a" parameter in formula
                                      settings.width_b,//"b" parameter in formula
