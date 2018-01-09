@@ -623,13 +623,13 @@ int main(int argc, char **argv) {
         " h(x,y,z)   = A*exp(-0.5*((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^))\n"
         " ... where  A,  a_x (in voxels)  equal:\n"
            << " " << A << " " 
-           << " " << settings.width_a[0]/sqrt(2) << "\n"
+           << " " << settings.width_a[0] << "\n"
         " ...   and  A,  a_y (in voxels)  equal:\n"
            << " " << A << " "
-           << " " << settings.width_a[1]/sqrt(2) << "\n"
+           << " " << settings.width_a[1] << "\n"
         " ...   and  A,  a_z (in voxels)  equal:\n"
            << " " << A << " "
-           << " " << settings.width_a[2]/sqrt(2) << "\n"
+           << " " << settings.width_a[2] << "\n"
           " You can plot this function in the X,Y, or Z directions using:\n"
           " draw_filter_1D.py -gauss  A  a\n";
         
@@ -714,16 +714,16 @@ int main(int argc, char **argv) {
         " h_b(x,y,z) = B*exp(-0.5*((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))\n"
         " ... where  A,  B,  a_x,  b_x  (in voxels) equal:\n"
            << " " << Aeff << " " << Beff
-           << " " << settings.width_a[0]/sqrt(2)
-           << " " << settings.width_b[0]/sqrt(2) << "\n"
+           << " " << settings.width_a[0]
+           << " " << settings.width_b[0] << "\n"
         " ...   and A,  B,  a_y,  b_y  (in voxels) equal:\n"
            << " " << Aeff << " " << Beff
-           << " " << settings.width_a[1]/sqrt(2)
-           << " " << settings.width_b[1]/sqrt(2) << "\n"
+           << " " << settings.width_a[1]
+           << " " << settings.width_b[1] << "\n"
         " ...   and A,  B,  a_z,  b_z  (in voxels) equal:\n"
            << " " << Aeff << " " << Beff
-           << " " << settings.width_a[2]/sqrt(2)
-           << " " << settings.width_b[2]/sqrt(2) << "\n"
+           << " " << settings.width_a[2]
+           << " " << settings.width_b[2] << "\n"
           " You can plot this function in the X,Y, or Z directions using:\n"
           " draw_filter_1D.py  -dog  A  B  a  b\n";                            
 
@@ -895,19 +895,19 @@ int main(int argc, char **argv) {
         " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
         " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
-           << " " << settings.width_a[0]/sqrt(2)
-           << " " << settings.width_b[0]/sqrt(2)
+           << " " << settings.width_a[0]
+           << " " << settings.width_b[0]
            << " " << settings.m_exp
            << " " << settings.n_exp << "\n"
         " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
-           << " " << settings.width_a[1]/sqrt(2)
-           << " " << settings.width_b[1]/sqrt(2)
+           << " " << settings.width_a[1]
+           << " " << settings.width_b[1]
            << " " << settings.m_exp
            << " " << settings.n_exp << "\n"
         " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
-           << " " << settings.width_a[2]/sqrt(2)
+           << " " << settings.width_a[2]
            << " " << 0.0 << " " << 1.0
            << " " << 2.0 << " " << 0.0 << "\n"
           " You can plot these functions using:\n"
