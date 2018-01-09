@@ -28,7 +28,7 @@ convolve_mrc \
    -w 1.92 \
    -dog 12.0 12.0 24.0 15.0 15.0 30.0 \
    -exponents 2 2 \
-   -cutoff 2.0 \
+   -cutoff 0.01 \
    -mask Bdellovibrio_1K_mask_water=0_periplasm=1_cytoplasm=2.mrc \
    -mask-select 0 -mask-out 1.0
 ```
@@ -76,50 +76,76 @@ Note: In most of the Jensen lab tomograms before 2018,
 
 The user can select the type of filter they want to use
 using command line arguments.
-The "-gauss" filter uses a (low-pass) Gaussian filter. (default)
-The "-dog" filter uses a (band-pass) Difference-Of-Gaussians filter
-which can be used for blob detection as well as low-frequency removal.
-The "-dogxy" filter uses a Difference-Of-Gaussians filter in the XY direction
-coupled with an ordinary Gaussian filter in the Z direction.
-In these examples, the Gaussians can be customized,
-although it may slow down the filtering process significantly.
 
-### -gauss-aniso
-The -gauss argument must be followed by 3 numbers:
+The "**-gauss**" filter uses a low-pass
+[Gaussian blur](https://en.wikipedia.org/wiki/Gaussian_blur)
+filter.
+(The "**-gauss-aniso**" filter allows you to apply different amounts of blurring in the X,Y,Z directions.)
+
+The "**-dog**"" filter uses a (band-pass)
+[Difference-Of-Gaussians](https://en.wikipedia.org/wiki/Difference_of_Gaussians)
+filter
+which can be used for blob detection as well as low-frequency removal.
+(The "**-dog-aniso**" filter allows you to modify the properties of the filter in the X,Y,Z directions.)
+
+The "**-log**" filter can be used for [Blob detection](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian).
+
+In all of these filters, [*Generalized Gaussians*](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1)
+can be substituted for ordinary Gaussians by using the "**-exponent m**" or "**-exponents m n**" command line arguments.  (See below.)
+
+### Template Matching
+A Difference-Of-Generalized-Gaussians ("**-dog**") filter can be used to give the curve a sharper cutoff suitable for the template matching of compact (approximately spherical) bodies.  Such filters can be used to identify simple objects such as ribosomes or nucleosomes according to their approximate size (without regard to their fine features).  However generalized Gaussians are orders of magnitude slower than ordinary Gaussian filters.  For this reason a hybrid filter, "**-dogxy**", is available which uses a Difference-Of-Generalized-Gaussians filter in the XY direction combined with an ordinary Gaussian filter in the Z direction.  The computational cost of "**-dogxy**" lies in between "**-dog**" and "**-dog**".  (Features in electron tomography are typically blurred more in the Z direction due to the effect of the missing wedge.  So it may be pointless and impossible to use the computationally more expensive "**-dog**" filter in an effort to find the precise boundaries of objects in the Z direction.  In these cases, the "**-dogxy**" filter may work just as well and is significantly faster.)
+
+
+### -gauss
+The **-gauss** and **-gauss-aniso** arguments must be followed by one or more numbers specifying the width of the Gaussian filter to apply to your image:
 ```
    -gauss-aniso  s_x  s_y  s_z
 ```
-If the "-gauss-ansi" filter is selected, the
+```
+   -gauss  s      (this means s_x = s_y = s_z = s)
+```
+When the "-gauss" or "-gauss-aniso" filter is selected, the
 original image is convolved with the following function:
 ```
    h(x,y,z) = A*exp(-0.5 * r^2)
     where r = sqrt((x/s_x)^2 + (y/s_y)^2 + (z/s_z)^2))
 ```
 The width of the Gaussian (ie, the s_x, s_y, s_z arguments) should be specified in units of physical distance, not in voxels.
-By default the domain of the filter is extended in each direction to a distance
-of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
 (The A coefficient will determined automatically by normalization, ie., so that the discrete sum of h(x,y,z) over x,y,z is 1.)
+The width of the filter-window is chosen automatically according the s, s_x, s_y, s_z parameters selected by the user.  However this can be customized using the "-cutoff" and "-window-ratio" arguments if necessary (see below).
 
-If the optional "-exponent n" argument is supplied, then
-the original image is instead convolved with the following function:
+*Note:* If the optional "**-exponent m**" argument is supplied, then
+the original image is instead convolved with
+[the following function](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1):
 ```
-h(x,y,z) = A*exp(-r^n)
+h(x,y,z) = A*exp(-r^m)
  where r = sqrt((x/s_x)^2 + (y/s_y)^2 + (z/s_z)^2))
 ```
-This will slow down the filter considerably.
-(Because, in this case the filter is no longer a separable function of x,y,z
- and the full 3-D convolution must be performed.)
+This crude generalization of the "gaussian" function gives us an ad-hoc way
+to alter shape of the filter.
+(As you increase the **n** exponent parameter,
+the shape of the filter becomes sharper
+and begins to resemble a step-function.
+For your convenience, you can plot these functions for various parameters using
+the "draw_filter1D.py -ggauss A a m" python script which is located in the same directory.
+*Warning: This will slow down the filter considerably* because in this case the filter is no longer a [separable](https://en.wikipedia.org/wiki/Separable_filter) function of x,y,z.)
 
 
-### -log-aniso
-The -log-aniso argument must be followed by 3 numbers:
+### -log
+The **-log** and **-log-aniso** argument must be numbers specifying the approximate radius (width/2) of features that you wish to emphasize in the image:
 
 ```
   -log-aniso  s_x  s_y  s_z
 ```
-If the "-log" filter is selected, the
-a "laplacian-of-gaussians" filter will be used.
-The original image is convolved with the following function:
+```
+  -log  s      (this means s_x = s_y = s_z = s)
+```
+When the "**-log**" or "**-log-aniso**" filter is selected,
+a ["laplacian-of-gaussians"](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian)
+ filter will be used.
+The original image is convolved with the following function
+(which is an approximation to the "laplacian-of-gaussian" filter):
 ```
    h(x,y,z) = A*exp(-0.5 * r_a^2) - B*exp(-0.5 * r_b^2)
   where r_a = sqrt((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))
@@ -129,22 +155,26 @@ The original image is convolved with the following function:
 ```
 The A and B parameters are determined automatically by normalization.
 The "delta" parameter is 0.01 by default.
-(This can be overridden using the "-log-delta delta" argument.)
+(This can be overridden using the "-log-delta delta" argument.
+A smaller "delta" value may improve the approximation.)
 The width of the Gaussian (the s_x, s_y, s_z arguments) should be specified in units of physical distance, not in voxels.
 The A and B coefficients will be automatically chosen so that the discrete sum of h(x,y,z) over x,y,z is 0, and the peak height is 1 (A-B=1).
-By default the domain of the filter is extended in each direction to a distance
-of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
+The width of the filter-window is chosen automatically according the shape of the filter selected by the user.  However this can be customized using the "-cutoff" and "-window-ratio" arguments if necessary (see below).
 
 
 ### -dog-aniso
-The -dog-aniso argument must be followed by 6 numbers:
+The **-dog** and **-dog-aniso** arguments must be followed by numbers indicating the width of the Gaussians you wish to convolve with your image.  (Equivalently, the numbers indicate the band of frequencies you wish to keep from your original image.)
 
 ```
-  -dog  a_x  a_y  a_z  b_x  b_y  b_z
+  -dog-aniso  a_x  a_y  a_z  b_x  b_y  b_z
 ```
-If the "-dog" filter is selected
-a "difference-if-gaussians" filter will be used.
-The original image is convolved with the following function:
+```
+  -dog  a  b      (this means a_x=a_y=a_z=a and b_x=b_y=b_z=b)
+```
+When the "**-dog**" or "**-dog-aniso**" filter is selected, a
+[Difference-of-Gaussians](https://en.wikipedia.org/wiki/Difference_of_Gaussians)
+filter will be used.
+The original image will be convolved with the following function:
 ```
    h(x,y,z) = A*exp(-0.5 * r_a^2) - B*exp(-0.5 * r_b^2)
   where r_a = sqrt((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))
@@ -152,27 +182,33 @@ The original image is convolved with the following function:
 ```
 The width of the Gaussian (the a_x, a_y, a_z, b_x, b_y, b_z arguments) should be specified in units of physical distance, not in voxels.
 The A and B coefficients will be automatically chosen so that the discrete sum of h(x,y,z) over x,y,z is 0, and the peak height is 1 (A-B=1).
-By default the domain of the filter is extended in each direction to a distance
-of 3.0 * MAX(a,b).  (IE, thrice the width of the filter in that direction. This can be overridden using the "-cutoff" argument.  See below.)
+The width of the filter-window is chosen automatically according the shape of the filter selected by the user.  However this can be customized using the "**-cutoff**" and "**-window-ratio**" arguments if necessary (see below).
 
-If the optional "-exponents m n" argument is supplied, then
+*Note:* If the optional "**-exponents m n**" argument is supplied, then
 the original image is instead convolved with the following function:
 ```
 h(x,y,z) = A*exp(-r_a^m) - B*exp(-r_b^n)
  where r_a = sqrt((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))
    and r_b = sqrt((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))
 ```
-This will slow down the filter considerably.
 This crude generalization of the "gaussian" function gives us an ad-hoc way
 to alter shape of the filter.
+(As you increase the **m** and **n** exponent parameters,
+the shape of the filter becomes sharper
+and begins to resemble step-functions.
+For your convenience, you can plot these functions for various parameters using
+the "draw_filter1D.py -dogg A B a b m n" python script which is located in the same directory.
+*Warning: This will slow down the filter considerably* because in this case
+the filter is no longer a
+[separable](https://en.wikipedia.org/wiki/Separable_filter) function of x,y,z.)
 
 
 ### -dogxy
-The -dogxy argument must be followed by 3 numbers:
+The **-dogxy** argument must be followed by 3 numbers:
 ```
-  -dog  a  b  c
+  -dogxy  a  b  c
 ```
-If the "-dogxy" filter is selected,
+When the "**-dogxy**" filter is selected,
 the original image is convolved with the following function:
 ```
    h(x,y,z) = h_xy(x,y) * h_z(z)
@@ -186,7 +222,7 @@ the original image is convolved with the following function:
 ```
  The "m" and "n" parameters are exponents.
  They are both set to 2 by default, however you can override them
- using the "-exponents m n" argument.
+ using the "**-exponents m n**" argument.
 
  Along the Z direction, the filter used is a simple Gaussian:
 ```

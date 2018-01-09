@@ -83,10 +83,11 @@ class Settings {
   typedef enum eFilterType {
     NONE,    //(the user has not selected a filter)
     GAUSS,   //3D Gaussian filter
+    GGAUSS,  //3D Generalized Gaussian filter
     DOG,     //3D difference of Gaussians (fast, separable)
     LOG,     //3D Laplacian-of-Gaussian (fast, separable)
-    DOGGEN,  //3D Difference-of-Gaussians filter (general, arbitrary exponents)
-    DOGXYGEN //2D Difference-of-Gaussians (in XY direction, arbitrary exponents)
+    DOGG,    //3D Difference-of-Generalized-Gaussians (arbitrary exponents)
+    DOGGXY   //2D Difference-of-Generalized-Gaussians (arbitrary exponents)
              //and a 1D Gaussian filter (in the Z direction)
   } FilterType; 
   
@@ -94,7 +95,7 @@ class Settings {
 
   float window_threshold;
   float window_ratio;
-  float window_halfwidth[3];
+  //float window_halfwidth[3];
 
   bool use_thresholds;
   bool use_dual_thresholds;

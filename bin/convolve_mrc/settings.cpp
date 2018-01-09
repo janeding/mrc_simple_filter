@@ -43,10 +43,10 @@ Settings::Settings() {
   m_exp = 2.0;       // exponent in generalized Gaussian formula (width a)
   n_exp = 2.0;       // exponent in generalized Gaussian formula (width b)
 
-  window_halfwidth[0] = -1; // width of the filter used (in voxels)
-  window_halfwidth[1] = -1; // (This is the size of the domain of the function
-  window_halfwidth[2] = -1; //  which will be convolved with the image.
-                            //  "-1" means unspecified.)
+  //window_halfwidth[0] = -1; // width of the filter used (in voxels)
+  //window_halfwidth[1] = -1; // (This is the size of the domain of the function
+  //window_halfwidth[2] = -1; //  which will be convolved with the image.
+  //                          //  "-1" means unspecified.)
 
   window_threshold=0.05;    //Filter intensity decay value before giving up
                             //When the filter strength is less than this value
@@ -280,7 +280,7 @@ Settings::ParseArgs(vector<string>& vArgs)
       num_arguments_deleted = 3;
     } //if (vArgs[i] == "-dog")
 
-    else if (vArgs[i] == "-dogxy-aniso")
+    else if (vArgs[i] == "-doggxy-aniso")
     {
       if ((i+5 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
@@ -297,11 +297,9 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_a[1] = stof(vArgs[i+2]);
       width_b[0] = stof(vArgs[i+3]);
       width_b[1] = stof(vArgs[i+4]);
-      //The "-dogxy" filter is a difference of Gaussians in the X,Y directions
-      //multiplied by a Gaussian in the Z direction.
-      //By default, this Gaussian has width 0.
-      //(In other words, by default it has no blurring in the Z direction.)
-      //Users can override this using the "-gauss-z" argument.
+      //The "-doggxy" filter is a Difference-of-Generalized-Gaussians 
+      //in the X,Y  directions, multiplied by an ordinary Gaussian in 
+      //the Z direction.
       width_a[2] = stof(vArgs[i+5]);
       width_b[2] = -1.0;   //(This disables the second (negative) Gaussian)
       //if (width_b[0] <= width_a[0])
@@ -309,10 +307,10 @@ Settings::ParseArgs(vector<string>& vArgs)
       //                 " increasing.  (Ie., the 2nd argument must be > 1st argument.)\n");
       filter_type = DOGXYGEN;
       num_arguments_deleted = 6;
-    } //if (vArgs[i] == "-dogxy-aniso")
+    } //if (vArgs[i] == "-doggxy-aniso")
 
 
-    else if ((vArgs[i] == "-dogxy") || (vArgs[i] == "-dogxy-iso"))
+    else if ((vArgs[i] == "-doggxy") || (vArgs[i] == "-doggxy-iso"))
     {
       if ((i+5 >= vArgs.size()) ||
           (vArgs[i+1] == "") || (vArgs[i+1][0] == '-') ||
@@ -327,11 +325,9 @@ Settings::ParseArgs(vector<string>& vArgs)
       width_a[1] = width_a[0];
       width_b[0] = stof(vArgs[i+2]);
       width_b[1] = width_b[0];
-      //The "-dogxy" filter is a difference of Gaussians in the X,Y directions
-      //multiplied by a Gaussian in the Z direction.
-      //By default, this Gaussian has width 0.
-      //(In other words, by default it has no blurring in the Z direction.)
-      //Users can override this using the "-gauss-z" argument.
+      //The "-doggxy" filter is a Difference-of-Generalized-Gaussians 
+      //in the X,Y  directions, multiplied by an ordinary Gaussian in 
+      //the Z direction.
       width_a[2] = stof(vArgs[i+3]);
       width_b[2] = -1.0;   //(This disables the second (negative) Gaussian)
       //if (width_b[0] <= width_a[0])

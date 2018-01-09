@@ -39,7 +39,7 @@ if sys.argv[1] == '-gauss':
     plt.step(r_i+0.5, p_i)
     plt.show()
 
-elif sys.argv[1] == '-gaussgen':
+elif sys.argv[1] == '-ggauss':
     if i+4 >= len(sys.argv):
         raise InputError('Error: Expected 4 numeric arguments following \"'+sys.argv[1]+'\"\n')
     A = float(sys.argv[i+1])
@@ -72,7 +72,7 @@ elif sys.argv[1] == '-dog':
     plt.step(r_i+0.5, p_i)
     plt.show()
 
-elif sys.argv[1] == '-doggen':
+elif sys.argv[1] == '-dogg':
     if i+6 >= len(sys.argv):
         raise InputError('Error: Expected 6 numeric arguments following \"'+sys.argv[1]+'\"\n')
     A = float(sys.argv[i+1])

@@ -635,6 +635,32 @@ int main(int argc, char **argv) {
         
     } // if (settings.filter_type == Settings::GAUSS)
 
+
+    else if (settings.filter_type == Settings::GGAUSS) {
+      throw InputErr("Error: 3-D Generalized-Gaussians filter\n"
+                     "       has not been implemented yet.\n"
+                     "       (However implementing should be trivial to do.)\n"
+                     "For now, you must avoid using the -exponent argument.  Use ordinary Gaussians\n");
+
+      cerr << " Filter Used:\n"
+        " h(x,y,z)   = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+        " ... where  A,  a_x(voxels),  m  equal:\n"
+           << " " << A << " " 
+           << " " << settings.width_a[0]
+           << " " << settings.exp_m << "\n"
+        " ...   and  A,  a_y(voxels),  m  equal:\n"
+           << " " << A << " "
+           << " " << settings.width_a[1]
+           << " " << settings.exp_m << "\n"
+        " ...   and  A,  a_z(voxels),  m  equal:\n"
+           << " " << A << " "
+           << " " << settings.width_a[2]
+           << " " << settings.exp_m << "\n"
+        " You can plot this function in the X,Y, or Z directions using:\n"
+        " draw_filter_1D.py -ggauss  A  a  m\n";
+    }
+
+
     else if (settings.filter_type == Settings::DOG) {
       cerr << "filter_type = Difference of Gaussians (DOG)\n";
 
@@ -734,10 +760,10 @@ int main(int argc, char **argv) {
 
     } //if (settings.filter_type == Settings::DOG)
 
-    else if (settings.filter_type == Settings::DOGGEN) {
-      cerr << "filter_type = Generalized Difference of Gaussians (DOGGEN)\n";
+    else if (settings.filter_type == Settings::DOGG) {
+      cerr << "filter_type = Difference-of-Generalized-Gaussians (DOGG)\n";
 
-      throw InputErr("Error: The general 3-D DOG filter (supporting exponents m,n!=2)\n"
+      throw InputErr("Error: The 3-D Difference-of-Generalized-Gaussians filter\n"
                      "       has not been implemented yet.\n"
                      "      (However implementing should be trivial to do.\n"
                      "       Edit the code to define a functions \"GenFilterGenDog3D()\" and\n"
@@ -753,11 +779,35 @@ int main(int argc, char **argv) {
       //                  settings.window_threshold,
       //                  &A,
       //                  &B);
-    } //else if (settings.filter_type == Settings::DOGGEN)
+      cerr << " Filter Used:\n"
+        " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
+        " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+        " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
+        " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[0]
+           << " " << settings.width_b[0]
+           << " " << settings.m_exp
+           << " " << settings.n_exp << "\n"
+        " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[1]
+           << " " << settings.width_b[1]
+           << " " << settings.m_exp
+           << " " << settings.n_exp << "\n"
+        " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
+           << " " << A << " " << B
+           << " " << settings.width_a[2]
+           << " " << settings.width_b[2]
+           << " " << settings.m_exp
+           << " " << settings.n_exp << "\n"
+          " You can plot these functions using:\n"
+          " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
+    } //else if (settings.filter_type == Settings::DOGG)
 
 
-    else if (settings.filter_type == Settings::DOGXYGEN) {
-      cerr << "filter_type = Generalized Difference of Gaussians in XY plane (DOGXYGEN)\n";
+    else if (settings.filter_type == Settings::DOGGXY) {
+      cerr << "filter_type = Difference-of-Generalized-Gaussians in the XY plane\n";
       // Generate a filter
       //
       //   h(x,y,z) = h_xy(x,y) * h_z(z)
@@ -803,6 +853,9 @@ int main(int argc, char **argv) {
         filterZ = GenFilterGauss1D(settings.width_a[2],
                                    window_halfwidthZ);
       }
+      float C;       // let the user know what C coefficient was used
+      C = filterZ.afWeights[window_halfwidthZ]; //(C=peak height located at the
+                                                //   middle of the array)
 
 
       // Then generate the filter in the XY directions
@@ -890,9 +943,9 @@ int main(int argc, char **argv) {
       }
 
       cerr << " Filter Used:\n"
-        " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
-        " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
-        " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
+        " h(x,y,z) = (h_a(x,y) - h_b(x,y)) * C * exp(-0.5*(z/s)^2)\n"
+        " h_a(x,y) = A*exp(-((x/a_x)^2 + (y/a_y)^2)^(m/2))\n"
+        " h_b(x,y) = B*exp(-((x/b_x)^2 + (y/b_y)^2)^(n/2))\n"
         " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
            << " " << settings.width_a[0]
@@ -905,16 +958,17 @@ int main(int argc, char **argv) {
            << " " << settings.width_b[1]
            << " " << settings.m_exp
            << " " << settings.n_exp << "\n"
-        " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[2]
-           << " " << 0.0 << " " << 1.0
-           << " " << 2.0 << " " << 0.0 << "\n"
-          " You can plot these functions using:\n"
-          " draw_filter_1D.py  -doggen  A  B  a  b  m  n\n";
+        " You can plot these functions using:\n"
+        " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n"
+        "\n"
+        " ...    and in the Z direction,  C, s(in voxels)  equals:\n"
+           << " " << C <<
+           << " " << settings.width_a[2] << "\n"
+          " You can plot this function using:\n"
+          " draw_filter_1D.py  -gauss C s\n";
 
   
-    } //else if (settings.filter_type = Settings::DOGXYGEN)
+    } //else if (settings.filter_type = Settings::DOGGXY)
 
 
 

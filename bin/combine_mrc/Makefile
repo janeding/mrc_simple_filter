@@ -29,40 +29,40 @@ INCLUDES = \
 -I$(INTERNAL_LIB_PATH)/mrc_simple
 
 
-OBJECT_FILES = merge_mrc.o settings.o
+OBJECT_FILES = combine_mrc.o settings.o
 
 
-OBJECT_SRC = merge_mrc.cpp settings.cpp
+OBJECT_SRC = combine_mrc.cpp settings.cpp
 
 RCS_FILES = $(OBJECT_SRC)
 
 
 
-#Default target: the merge_mrc binary
-#                "merge_mrc" is the lattice polymer simulator
-merge_mrc: $(OBJECT_FILES) $(LIB_FILES)
-	$(ANSI_CPP) $(LFLAGS) -o merge_mrc \
+#Default target: the combine_mrc binary
+#                "combine_mrc" is the lattice polymer simulator
+combine_mrc: $(OBJECT_FILES) $(LIB_FILES)
+	$(ANSI_CPP) $(LFLAGS) -o combine_mrc \
 	$(OBJECT_FILES) \
 	$(LIBS)
 
 
 install:
-	$(MAKE) ANSI_C="$(ANSI_C)" ANSI_CPP="$(ANSI_CPP)" L_COMP="$(L_COMP)" CFLAGS="$(CFLAGS)" LFLAGS="$(LFLAGS)" INSTALL_PATH="$(INSTALL_PATH)" merge_mrc
-	cp -f merge_mrc $(INSTALL_PATH)
-	#cp -f docs_merge_mrc.txt $(INSTALL_PATH)
+	$(MAKE) ANSI_C="$(ANSI_C)" ANSI_CPP="$(ANSI_CPP)" L_COMP="$(L_COMP)" CFLAGS="$(CFLAGS)" LFLAGS="$(LFLAGS)" INSTALL_PATH="$(INSTALL_PATH)" combine_mrc
+	cp -f combine_mrc $(INSTALL_PATH)
+	#cp -f docs_combine_mrc.txt $(INSTALL_PATH)
 
 checkout:
 	co -q $(RCS_FILES)
 
-GENERATED_FILES = *.o *.a core merge_mrc $(COMPILER_TEMP_FILES) $(LINKER_TEMP_FILES)
+GENERATED_FILES = *.o *.a core combine_mrc $(COMPILER_TEMP_FILES) $(LINKER_TEMP_FILES)
 
 clean:
 	rm -f $(GENERATED_FILES)
 
 distclean:
 	$(MAKE) clean
-	rm -f $(INSTALL_PATH)/merge_mrc
-	#rm -f $(INSTALL_PATH)/docs_merge_mrc.txt
+	rm -f $(INSTALL_PATH)/combine_mrc
+	#rm -f $(INSTALL_PATH)/docs_combine_mrc.txt
 
 depend:
 	mv Makefile Makefile.tmp
