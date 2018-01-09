@@ -119,6 +119,9 @@ public:
       array_size[d] = 1 + 2*halfwidth[d];
     }
     Alloc2D(array_size, &af, &aafWeights);
+    for (int iy = 0; iy < array_size[1]; iy++)
+      for (int ix = 0; ix < array_size[0]; ix++)
+        aafWeights[iy][ix] = -1.0e38; //(if uninitiliazed memory read, we will know)
   }
 
   void Dealloc() {

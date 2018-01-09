@@ -142,6 +142,10 @@ public:
       array_size[d] = 1 + 2*halfwidth[d];
     }
     Alloc3D(array_size, &af, &aaafWeights);
+    for (int iz = 0; iz < array_size[2]; iz++)
+      for (int iy = 0; iy < array_size[1]; iy++)
+        for (int ix = 0; ix < array_size[0]; ix++)
+          aaafWeights[iz][iy][ix] = -1.0e38; //(if uninitiliazed memory read, we will know)
   }
 
   void Dealloc() {

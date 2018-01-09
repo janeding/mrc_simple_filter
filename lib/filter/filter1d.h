@@ -96,6 +96,8 @@ public:
     halfwidth = set_halfwidth;
     Integer array_size = 1 + 2*halfwidth;
     afWeights = new RealNum [array_size];
+    for (int i = 0; i < array_size; i++)
+      afWeights[i] = -1.0e38; //(if uninitiliazed memory read, we will know)
   }
 
   void Dealloc() {

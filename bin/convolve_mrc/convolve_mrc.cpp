@@ -114,9 +114,6 @@ GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
                  // (and eliminates anisotropic artifacts due to these corners)
                  // There's no reason to keep any entries less than min value.
       filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] = h;
-      cerr << "threshold=" << window_threshold
-           <<", aafWeights["<<iy<<"]["<<ix<<"] = "
-           << filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
       total += h;
     }
   }
@@ -124,6 +121,10 @@ GenFilterGenGauss2D(RealNum width[2],    //"s_x", "s_y" parameters
   for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
     for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
       filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] /= total;
+      //FOR DEBUGGING REMOVE EVENTUALLY
+      cerr << "threshold=" << window_threshold
+           <<", aafWeights["<<iy<<"]["<<ix<<"] = "
+           << filter.aafWeights[iy+halfwidth[1]][ix+halfwidth[0]] << endl;
     }
   }
   return filter;
@@ -420,7 +421,6 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
     if (aafMask[d])
       delete [] aafMask[d];
   }
-  delete [] aFilter;
 
   return A_coeff;
 } //_ApplyGauss3D(aFilter)
@@ -442,19 +442,9 @@ ApplyGauss3D(RealNum const sigma[3],
   assert(aaafDest);
   //assert(aaafMask);
   //Allocate filters in all 3 directions.  (Later apply them sequentially.)
-  Filter1D<float, int> *aFilter = new Filter1D<float, int> [3];
+  Filter1D<float, int> aFilter[3];
   for (int d=0; d < 3; d++)
     aFilter[d] = GenFilterGauss1D(sigma[d], window_halfwidth[d]);
-
-  // Optional
-  // The "A" 3-D Gaussian coefficient is the product of the
-  // 1-D Gaussian coefficients in the X,Y,Z directions.
-  // Those coefficients happen to equal the value of the 1-D
-  // Gaussian evaluated at its peak, which is stored in the central entry at
-  // "halfwidth".  (The 1-D filter arrays have size equal to 2*halfwidth+1)
-  RealNum A_coeff = (aFilter[0].afWeights[aFilter[0].halfwidth] *
-                     aFilter[1].afWeights[aFilter[1].halfwidth] *
-                     aFilter[2].afWeights[aFilter[2].halfwidth]);
 
   return _ApplyGauss3D(aFilter,
                        image_size, 
@@ -463,7 +453,6 @@ ApplyGauss3D(RealNum const sigma[3],
                        aaafMask);
                        //precompute_mask_times_source)
 
-  delete [] aFilter;
 } //ApplyGauss3D(sigma, window_halfwidth, ...)
 
 
@@ -481,7 +470,7 @@ ApplyGauss3D(RealNum const sigma[3],
   assert(aaafDest);
   //assert(aaafMask);
   //Allocate filters in all 3 directions.  (Later apply them sequentially.)
-  Filter1D<float, int> *aFilter = new Filter1D<float, int> [3];
+  Filter1D<float, int> aFilter[3];
   for (int d=0; d < 3; d++)
     aFilter[d] = GenFilterGauss1DThresh(sigma[d], window_threshold);
 
@@ -491,7 +480,6 @@ ApplyGauss3D(RealNum const sigma[3],
                        aaafDest,
                        aaafMask);
                        //precompute_mask_times_source)
-  delete [] aFilter;
 } //ApplyGauss3D(sigma, window_threshold, ...)
 
 
@@ -693,7 +681,7 @@ int main(int argc, char **argv) {
                          window_halfwidth,
                          tomo_in.mrc_header.nvoxels,
                          tomo_in.aaafDensity,
-                         tomo_out.aaafDensity,
+                         aaafTemp,
                          mask.aaafDensity);
                          //true);
       else if (settings.window_threshold > 0)
@@ -701,7 +689,7 @@ int main(int argc, char **argv) {
                          settings.window_threshold,
                          tomo_in.mrc_header.nvoxels,
                          tomo_in.aaafDensity,
-                         tomo_out.aaafDensity,
+                         aaafTemp,
                          mask.aaafDensity);
                          //true);
       else
