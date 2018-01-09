@@ -16,7 +16,7 @@ Both isotropic and anisotropic filters are supported.
 This program supports masks and thresholding using
 the "*-mask*" and "*-thresh*" (and "*-thresh2*" and "*-thresh4*") arguments.
 
-*In this program all of the parameters provided by the user are assumed to be in **physical units**.  (Not **voxels**.  This effects all of the gaussian "sigma" parameters, specifically all of the "-width-xy" and "-width-z" and "-window" arguments.  To express these distances in *voxels* instead, set the voxel_width to 1.0 using "-w 1.0".  See below)*
+*In this program all of the parameters provided by the user are assumed to be in **physical units**.  (Not **voxels**.  This effects all of the gaussian "sigma" parameters, specifically all of the "-width-xy" and "-width-z" and "-window-ratio" arguments.  To express these distances in *voxels* instead, set the voxel_width to 1.0 using "-w 1.0".  See below)*
 
 
 ## Usage Example:
@@ -234,31 +234,31 @@ the original image is convolved with the following function:
 
 ### Filter Size
 ```
-   -cutoff ratio
+   -cutoff threshold
 ```
 This specifies the number of voxels in the filter which will be convolved
-with the image.  
-It is expressed in units of the "width" parameters
-for the filter you have selected.
-For example, if you use "-cutoff 2.0" with the "-gauss" (Gaussian) filter,
-then the filter window will extend outward away from the filter center
-by a distance of 2 sigma in the respective x,y,z directions.
-(ie., 2.0*a_x, 2.0*a_y, 2.0*a_z, where "a_x", "a_y", "a_z"
- are the Gaussian widths in the x,y,z directions, respectively).
-If unspecified, this parameter is set to 2.0.
+with the image.
+The filter window width is extended in the X, Y, and Z directions until
+the filter intensity decays to less than **threshold** (a fraction),
+compared to its peak value.
+(For Difference-of-Gaussian filters, both Gaussians must decay to this value.)
+If unspecified, this parameter is set to 0.02.
+(This overrides the "-window-ratio" argument.)
 
 ```
-   -window Wx Wy Wz
+   -window-ratio Wx Wy Wz
 ```
 If you prefer to specify the size of the filter window manually, you can
-use the "-window" argument.
+use the "-window-ratio" argument.
 This argument specifies the size of the 3-D filter box in x,y, directions
-(in physical units, not voxels).
-This overrides the "-cutoff ratio" argument.
+(in units of the **a** and **b** distance parameters, or **s**(sigma)
+ parameters which appear in the formulas above).
+This overrides the "-cutoff threshold" argument.
 
-*(Note: Either way, in the worst case, the product of the 3 numbers, Wx*Wy*Wz, is proportional to the running time of the filter.
-However when using the "-gauss" or "-dog" filters with default settings,
-the running time is proportional to the sum of these numbers, Wx+Wy+Wz.)*
+*(Note: Incidentally, the product of these 3 numbers, Wx*Wy*Wz, is proportional to the running time of the filter.
+However when using the "-gauss" or "-dog" filters with default exponent settings,
+the running time is proportional to the sum of these numbers, Wx+Wy+Wz.
+Keep this in mind when specifying filter window widths.)*
 
 
 ```

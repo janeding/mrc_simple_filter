@@ -21,7 +21,7 @@ Currently, the program supports the following list of filters:
 ([generalized](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1))
 [Gaussians](https://en.wikipedia.org/wiki/Gaussian_blur),
 ([generalized](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1))
-[Difference-of-Gaussians]((https://en.wikipedia.org/wiki/Difference_of_Gaussians),
+[Difference-of-Gaussians](https://en.wikipedia.org/wiki/Difference_of_Gaussians),
 [Lapplacian-of-Gaussians](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian),
 and others.
 Both isotropic and anisotropic filters are supported.

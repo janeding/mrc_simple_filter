@@ -642,22 +642,22 @@ int main(int argc, char **argv) {
                      "       (However implementing should be trivial to do.)\n"
                      "For now, you must avoid using the -exponent argument.  Use ordinary Gaussians\n");
 
-      cerr << " Filter Used:\n"
-        " h(x,y,z)   = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
-        " ... where  A,  a_x(voxels),  m  equal:\n"
-           << " " << A << " " 
-           << " " << settings.width_a[0]
-           << " " << settings.exp_m << "\n"
-        " ...   and  A,  a_y(voxels),  m  equal:\n"
-           << " " << A << " "
-           << " " << settings.width_a[1]
-           << " " << settings.exp_m << "\n"
-        " ...   and  A,  a_z(voxels),  m  equal:\n"
-           << " " << A << " "
-           << " " << settings.width_a[2]
-           << " " << settings.exp_m << "\n"
-        " You can plot this function in the X,Y, or Z directions using:\n"
-        " draw_filter_1D.py -ggauss  A  a  m\n";
+      //cerr << " Filter Used:\n"
+      //  " h(x,y,z)   = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+      //  " ... where  A,  a_x(voxels),  m  equal:\n"
+      //     << " " << A << " " 
+      //     << " " << settings.width_a[0]
+      //     << " " << settings.exp_m << "\n"
+      //  " ...   and  A,  a_y(voxels),  m  equal:\n"
+      //     << " " << A << " "
+      //     << " " << settings.width_a[1]
+      //     << " " << settings.exp_m << "\n"
+      //  " ...   and  A,  a_z(voxels),  m  equal:\n"
+      //     << " " << A << " "
+      //     << " " << settings.width_a[2]
+      //     << " " << settings.exp_m << "\n"
+      //  " You can plot this function in the X,Y, or Z directions using:\n"
+      //  " draw_filter_1D.py -ggauss  A  a  m\n";
     }
 
 
@@ -779,30 +779,31 @@ int main(int argc, char **argv) {
       //                  settings.window_threshold,
       //                  &A,
       //                  &B);
-      cerr << " Filter Used:\n"
-        " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
-        " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
-        " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
-        " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[0]
-           << " " << settings.width_b[0]
-           << " " << settings.m_exp
-           << " " << settings.n_exp << "\n"
-        " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[1]
-           << " " << settings.width_b[1]
-           << " " << settings.m_exp
-           << " " << settings.n_exp << "\n"
-        " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[2]
-           << " " << settings.width_b[2]
-           << " " << settings.m_exp
-           << " " << settings.n_exp << "\n"
-          " You can plot these functions using:\n"
-          " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
+
+      //cerr << " Filter Used:\n"
+      //  " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
+      //  " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+      //  " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
+      //  " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
+      //     << " " << A << " " << B
+      //     << " " << settings.width_a[0]
+      //     << " " << settings.width_b[0]
+      //     << " " << settings.m_exp
+      //     << " " << settings.n_exp << "\n"
+      //  " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
+      //     << " " << A << " " << B
+      //     << " " << settings.width_a[1]
+      //     << " " << settings.width_b[1]
+      //     << " " << settings.m_exp
+      //     << " " << settings.n_exp << "\n"
+      //  " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
+      //     << " " << A << " " << B
+      //     << " " << settings.width_a[2]
+      //     << " " << settings.width_b[2]
+      //     << " " << settings.m_exp
+      //     << " " << settings.n_exp << "\n"
+      //    " You can plot these functions using:\n"
+      //    " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
     } //else if (settings.filter_type == Settings::DOGG)
 
 
@@ -962,10 +963,10 @@ int main(int argc, char **argv) {
         " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n"
         "\n"
         " ...    and in the Z direction,  C, s(in voxels)  equals:\n"
-           << " " << C <<
+           << " " << C
            << " " << settings.width_a[2] << "\n"
-          " You can plot this function using:\n"
-          " draw_filter_1D.py  -gauss C s\n";
+        " You can plot this function using:\n"
+        " draw_filter_1D.py  -gauss C s\n";
 
   
     } //else if (settings.filter_type = Settings::DOGGXY)
