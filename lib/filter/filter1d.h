@@ -19,7 +19,8 @@ public:
   void Apply(Integer const size_source,
              RealNum *afSource,
              RealNum *afDest,
-             RealNum const *afMask = NULL) const
+             RealNum const *afMask = NULL,
+             bool normalize = false) const
              //bool precompute_mask_times_source = true) const
   {
 
@@ -73,20 +74,24 @@ public:
           // Note: We previously applied the mask by multiplying
           //          aDensity[ix]
           //         by afMask[ix]   (if present)
-        if (afMask)
-          denominator += afMask[ix-jx] * afWeights[jx+halfwidth];
-        else
-          denominator += afWeights[jx+halfwidth];
+        if (normalize) {
+          if (afMask)
+            denominator += afMask[ix-jx] * afWeights[jx+halfwidth];
+          else
+            denominator += afWeights[jx+halfwidth];
+        }
                                           
         // Note: If there were no mask, and if the filter is normalized
         // then denominator=1 always, and we could skip the line above.
       }
 
-      if (denominator > 0.0)
-        g /= denominator;
-      else
-        //Otherwise, this position lies outside the mask region.
-        g = 0.0;
+      if (normalize) {
+        if (denominator > 0.0)
+          g /= denominator;
+        else
+          //Otherwise, this position lies outside the mask region.
+          g = 0.0;
+      }
 
       afDest[ix] = g;
     }

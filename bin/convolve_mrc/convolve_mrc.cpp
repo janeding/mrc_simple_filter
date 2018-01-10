@@ -360,7 +360,8 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d]);
+                       aafMask[d],
+                       true);
                        //precompute_mask_times_source);
       for (int iz = 0; iz < image_size[d]; iz++)
         aaafDest[iz][iy][ix] = aafDest[d][iz];  // copy back into aaafDest
@@ -384,7 +385,8 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d]);
+                       aafMask[d],
+                       true);
                        //precompute_mask_times_source);
       for (int iy = 0; iy < image_size[d]; iy++)
         aaafDest[iz][iy][ix] = aafDest[d][iy];  // copy back into aaafDest
@@ -407,7 +409,8 @@ _ApplyGauss3D(Filter1D<float, int> aFilter[3],
       aFilter[d].Apply(image_size[d],
                        aafSource[d],
                        aafDest[d],
-                       aafMask[d]);
+                       aafMask[d],
+                       true);
                        //precompute_mask_times_source);
       for (int ix = 0; ix < image_size[d]; ix++)
         aaafDest[iz][iy][ix] = aafDest[d][ix];  // copy back into aaafDest
@@ -915,7 +918,8 @@ int main(int argc, char **argv) {
           filterZ.Apply(tomo_in.mrc_header.nvoxels[2],
                         afDensityZorig,
                         afDensityZnew,
-                        afMask);
+                        afMask,
+                        true);
                         //true);
           //It would be wasteful to allocate a temporary array to store this
           //Instead store the result of the convolution in the original array:
@@ -938,21 +942,32 @@ int main(int argc, char **argv) {
         filterXY.Apply(tomo_in.mrc_header.nvoxels,
                        tomo_in.aaafDensity[iz],
                        tomo_out.aaafDensity[iz],
-                       tomo_out.aaafDensity[iz]);
-                       //aafMaskXY);
-                       //true);
+                       aafMaskXY,
+                       false);
       }
+      tomo_out.FindMinMaxMean();
+      cerr << "dmin = " << tomo_out.mrc_header.dmin << "\n"
+           << "dmax = " << tomo_out.mrc_header.dmax << "\n"
+           << "dmean = " << tomo_out.mrc_header.dmean << endl;
 
       cerr << " Filter Used:\n"
         " h(x,y,z) = (h_a(x,y) - h_b(x,y)) * C * exp(-0.5*(z/s)^2)\n"
         " h_a(x,y) = A*exp(-((x/a_x)^2 + (y/a_y)^2)^(m/2))\n"
         " h_b(x,y) = B*exp(-((x/b_x)^2 + (y/b_y)^2)^(n/2))\n"
+        "\n"
+        " ... where  parameters C  and  s(in voxels)  equal:\n"
+           << " " << C
+           << " " << settings.width_a[2] << "\n"
+        " You can plot this function using:\n"
+        " draw_filter_1D.py  -gauss C s\n"
+        "\n"
         " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
            << " " << settings.width_a[0]
            << " " << settings.width_b[0]
            << " " << settings.m_exp
            << " " << settings.n_exp << "\n"
+        "\n"
         " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
            << " " << A << " " << B
            << " " << settings.width_a[1]
@@ -960,15 +975,8 @@ int main(int argc, char **argv) {
            << " " << settings.m_exp
            << " " << settings.n_exp << "\n"
         " You can plot these functions using:\n"
-        " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n"
-        "\n"
-        " ...    and in the Z direction,  C, s(in voxels)  equals:\n"
-           << " " << C
-           << " " << settings.width_a[2] << "\n"
-        " You can plot this function using:\n"
-        " draw_filter_1D.py  -gauss C s\n";
+        " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
 
-  
     } //else if (settings.filter_type = Settings::DOGGXY)
 
 

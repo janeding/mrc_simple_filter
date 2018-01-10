@@ -16,13 +16,13 @@ and saves the result as a new .mrc/.rec file.
 This program can be used to rescale or invert a 3-D image, remove its high or low spatial frequencies,
 (smoothing, edge detection, band pass filter).
 and perform 3-D blob detection.
-This program can also be used for the simple template matching of spherical bodies of arbitrary size (and mask width).
+This program can also be used for the simple template matching of spherical objects of arbitrary size (and arbitrary mask width).
 Currently, the program supports the following list of filters:
 ([generalized](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1))
 [Gaussians](https://en.wikipedia.org/wiki/Gaussian_blur),
 ([generalized](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1))
 [Difference-of-Gaussians](https://en.wikipedia.org/wiki/Difference_of_Gaussians),
-[Lapplacian-of-Gaussians](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian),
+[Laplacian-of-Gaussians](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian),
 and others.
 Both isotropic and anisotropic filters are supported.
 (Fast [separable](https://en.wikipedia.org/wiki/Separable_filter) filters are used when possible.)
@@ -34,7 +34,7 @@ Detailed documentation for this program is located in the "*doc/*" subdirectory.
 Detailed documentation for this program is located in the "*doc/*" subdirectory.
 
 #### *pre alpha*
-Warning: This code is not yet stable.  As of 2017-12-26, this code compiles but it has only been lightly tested.  Tagged *releases* of this repository should have some semblance of functionality.  (Others may not even compile.)  Program names and command line arguments may change in the future.
+Warning: This code is not yet stable.  As of 2017-12-26, this code compiles but it has only been lightly tested.  Tagged *releases* of this repository should have some semblance of functionality.  (More recent commits may not even compile.)  Program names and command line arguments may change in the future.
 The documentation also needs to be updated.
 
 ## Compilation instructions:

@@ -25,7 +25,8 @@ public:
   void Apply(Integer const size_source[2],
              RealNum **aafSource,
              RealNum **aafDest,
-             RealNum **aafMask = NULL) const
+             RealNum **aafMask = NULL,
+             bool normalize = false) const
              //bool precompute_mask_times_source = true) const
   {
 
@@ -78,6 +79,10 @@ public:
             if ((ix-jx < 0) || (size_source[0] <= ix-jx))
               continue;
 
+            if ((jx == 0) && (jy == 0)) {
+              g += 1.0;
+              g -= 1.0;
+            }
             RealNum delta_g = 
               aafWeights[jy+halfwidth[1]][jx+halfwidth[0]] * aafSource[iy-jy][ix-jx];
 
@@ -88,23 +93,27 @@ public:
               // Note: We previously applied the mask by multiplying
               //          aaDensity[iy][ix]
               //         by aafMask[iy][ix]   (if present)
-            if (aafMask)
-              denominator +=
-                aafMask[iy-jy][ix-jx] * aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
+            if (normalize) {
+              if (aafMask)
+                denominator +=
+                  aafMask[iy-jy][ix-jx] * aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
                                                
-            else
-              denominator += aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
+              else
+                denominator += aafWeights[jy+halfwidth[1]][jx+halfwidth[0]];
+            }
                                           
             // Note: If there were no mask, and if the filter is normalized
             // then denominator=1 always, and we could skip the line above.
           }
         }
 
-        if (denominator > 0.0)
-          g /= denominator;
-        else
-          //Otherwise, this position lies outside the mask region.
-          g = 0.0;
+        if (normalize) {
+          if (denominator != 0.0)
+            g /= denominator;
+          else
+            //Otherwise, this position lies outside the mask region.
+            g = 0.0;
+        }
 
         aafDest[iy][ix] = g;
       }

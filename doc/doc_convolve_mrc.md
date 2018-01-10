@@ -9,7 +9,7 @@ perform 3-D blob detection.
 Currently, the program supports the following list of filters:
 (generalized) Gaussians,
 (generalized) Difference-of-Gaussians,
-Lapplacian-of-Gaussians, and others.
+Laplacian-of-Gaussians, and others.
 Both isotropic and anisotropic filters are supported.
 
 
@@ -77,10 +77,10 @@ Note: In most of the Jensen lab tomograms before 2018,
 The user can select the type of filter they want to use
 using command line arguments.
 
-The "**-gauss**" filter uses a low-pass
+The "**-gauss**" filter uses a (low-pass)
 [Gaussian blur](https://en.wikipedia.org/wiki/Gaussian_blur)
 filter.
-(The "**-gauss-aniso**" filter allows you to apply different amounts of blurring in the X,Y,Z directions.)
+(The "**-gauss-aniso**" filter allows you to apply different amounts of blurring to the X,Y, and Z directions.)
 
 The "**-dog**"" filter uses a (band-pass)
 [Difference-Of-Gaussians](https://en.wikipedia.org/wiki/Difference_of_Gaussians)
@@ -88,13 +88,19 @@ filter
 which can be used for blob detection as well as low-frequency removal.
 (The "**-dog-aniso**" filter allows you to modify the properties of the filter in the X,Y,Z directions.)
 
-The "**-log**" filter can be used for [Blob detection](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian).
+The "**-log**" filter can be used for [blob detection](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian).
 
 In all of these filters, [*Generalized Gaussians*](https://en.wikipedia.org/wiki/Generalized_normal_distribution#Version_1)
-can be substituted for ordinary Gaussians by using the "**-exponent m**" or "**-exponents m n**" command line arguments.  (See below.)
+can be substituted for ordinary Gaussians by using the "**-exponent m**" or "**-exponents m n**" command line arguments.  (Default value 2.  See below.)  Increasing these exponents sharpens the edges of the filter
 
 ### Template Matching
-A Difference-Of-Generalized-Gaussians ("**-dog**") filter can be used to give the curve a sharper cutoff suitable for the template matching of compact (approximately spherical) bodies.  Such filters can be used to identify simple objects such as ribosomes or nucleosomes according to their approximate size (without regard to their fine features).  However generalized Gaussians are orders of magnitude slower than ordinary Gaussian filters.  For this reason a hybrid filter, "**-dogxy**", is available which uses a Difference-Of-Generalized-Gaussians filter in the XY direction combined with an ordinary Gaussian filter in the Z direction.  The computational cost of "**-dogxy**" lies in between "**-dog**" and "**-dog**".  (Features in electron tomography are typically blurred more in the Z direction due to the effect of the missing wedge.  So it may be pointless and impossible to use the computationally more expensive "**-dog**" filter in an effort to find the precise boundaries of objects in the Z direction.  In these cases, the "**-dogxy**" filter may work just as well and is significantly faster.)
+
+You can Difference-Of-Generalized-Gaussians filter to create a filter 
+whose value is a positive constant within a spherical volume, 
+and is negative outside this volume within a larger radius. 
+("**-dog**" and "**-exponents**") filter can be used for the template matching of compact (approximately spherical) objects.  Such filters can be used to identify simple objects such as ribosomes or nucleosomes according to their approximate size.
+
+However generalized Gaussians are orders of magnitude slower than ordinary Gaussian filters.  For this reason a hybrid filter, "**-dogxy**", is available which uses a Difference-Of-Generalized-Gaussians filter in the XY direction combined with an ordinary Gaussian filter in the Z direction.  The computational cost of "**-dogxy**" lies in between "**-dog**" and "**-dog**".  (Features in electron tomography are typically blurred more in the Z direction due to the effect of the missing wedge.  So it may be pointless and impossible to use the computationally more expensive "**-dog**" filter in an effort to find the precise boundaries of objects in the Z direction.  In these cases, the "**-dogxy**" filter may work just as well and is significantly faster.)
 
 
 ### -gauss
@@ -114,6 +120,8 @@ original image is convolved with the following function:
 The width of the Gaussian (ie, the s_x, s_y, s_z arguments) should be specified in units of physical distance, not in voxels.
 (The A coefficient will determined automatically by normalization, ie., so that the discrete sum of h(x,y,z) over x,y,z is 1.)
 The width of the filter-window is chosen automatically according the s, s_x, s_y, s_z parameters selected by the user.  However this can be customized using the "-cutoff" and "-window-ratio" arguments if necessary (see below).
+
+*2018-1-04: The feature described below has not yet been implemented, but is trivial to add:*
 
 *Note:* If the optional "**-exponent m**" argument is supplied, then
 the original image is instead convolved with

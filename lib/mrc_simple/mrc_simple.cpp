@@ -555,8 +555,8 @@ void MrcSimple::Invert(float ***aaafMask)
       }
     }
   }
-  //mrc_header.dmean remains the same, and should equal "ave"
-  //(Note: I could also use FindMinMaxMean(aaafMask))
-  assert(ABS(mrc_header.dmean - ave) < 1.0e-3*ABS(ave));
+  mrc_header.dmean = ave;
+  mrc_header.dmin = dmin;
+  mrc_header.dmax = dmax;
 }
 

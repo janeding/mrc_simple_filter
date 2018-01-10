@@ -26,6 +26,7 @@ public:
              RealNum ***aaafSource,
              RealNum ***aaafDest,
              RealNum ***aaafMask = NULL,
+             bool normalize = false,
              //bool precompute_mask_times_source = true,
              ostream *preport_progress = NULL) const
   {
@@ -106,27 +107,30 @@ public:
                        // Note: We previously applied the mask by multiplying
                        //          aaafDensity[iz][iy][ix]
                        //          by aaafMask[iz][iy][ix]   (if present)
-                if (aaafMask)
-                  denominator += aaafMask[iz-jz][iy-jy][ix-jx] *
-                                      aaafWeights[jz+halfwidth[2]]
-                                                 [jy+halfwidth[1]]
-                                                 [jx+halfwidth[0]];
-                else
-                  denominator += aaafWeights[jz+halfwidth[2]]
-                                            [jy+halfwidth[1]]
-                                            [jx+halfwidth[0]];
+                if (normalize) {
+                  if (aaafMask)
+                    denominator += aaafMask[iz-jz][iy-jy][ix-jx] *
+                                        aaafWeights[jz+halfwidth[2]]
+                                                   [jy+halfwidth[1]]
+                                                   [jx+halfwidth[0]];
+                  else
+                    denominator += aaafWeights[jz+halfwidth[2]]
+                                              [jy+halfwidth[1]]
+                                              [jx+halfwidth[0]];
+                }
                 // Note: If there were no mask, and if the filter is normalized
                 // then denominator=1 always, and we could skip the line above.
               }
             }
           }
 
-
-          if (denominator > 0.0)
-            g /= denominator;
-          else
-            //Otherwise, this position lies outside the mask region.
-            g = 0.0;
+          if (normalize) {
+            if (denominator > 0.0)
+              g /= denominator;
+            else
+              //Otherwise, this position lies outside the mask region.
+              g = 0.0;
+          }
 
           aaafDest[iz][iy][ix] = g;
 
