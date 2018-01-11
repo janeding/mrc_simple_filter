@@ -245,7 +245,7 @@ Settings::ParseArgs(vector<string>& vArgs)
           (vArgs[i+5] == "") || (vArgs[i+5][0] == '-') ||
           (vArgs[i+6] == "") || (vArgs[i+6][0] == '-'))
         throw InputErr("Error: The " + vArgs[i] + 
-                       " argument must be followed by 3 positive numbers.\n");
+                       " argument must be followed by 6 positive numbers.\n");
       width_a[0] = stof(vArgs[i+1]);
       width_a[1] = stof(vArgs[i+2]);
       width_a[2] = stof(vArgs[i+3]);
@@ -585,6 +585,7 @@ Settings::ParseArgs(vector<string>& vArgs)
 
   // ----------
   if ((filter_type == GAUSS) || (filter_type == GGAUSS)) {
+    filter_type == GAUSS;
     // If the exponent equals 2, then the function we are convolving
     // with is an ordinary Gaussians.  Ordinary Gaussians are are separable
     // and can be convolved successively in 1-D in the x,y,z directions.
@@ -593,6 +594,7 @@ Settings::ParseArgs(vector<string>& vArgs)
     // the full 3-D convolution.
 
     if (exponents_set_by_user) {
+      filter_type = GGAUSS;
       if (m_exp == 2.0) {
         filter_type = GAUSS; // <-- use fast Gaussians instead of DOGG which is slow
 
@@ -610,13 +612,12 @@ Settings::ParseArgs(vector<string>& vArgs)
         for (int d=0; d<3; d++)
           width_a[d] /= sqrt(2.0);
       } //if (m_exp == 2.0)
-      else
-        filter_type == GGAUSS;
     } //if (exponents_set_by_user)
   } //if ((filter_type == GAUSS) || (filter_type == GGAUSS))
 
   // ----------
   if ((filter_type == DOG) || (filter_type == DOGG)) {
+    filter_type == DOG;
     // If the exponents equal 2, then the functions we are convolving
     // with are ordinary Gaussians.  Ordinary Gaussians are are separable
     // and can be convolved successively in 1-D in the x,y,z directions.
@@ -625,6 +626,7 @@ Settings::ParseArgs(vector<string>& vArgs)
     // the full 3-D convolution.
 
     if (exponents_set_by_user) {
+      filter_type = DOGG;
       if ((m_exp == 2.0) && (n_exp == 2.0)) {
         filter_type = DOG; // <-- use fast Gaussians instead of DOGG which is slow
 

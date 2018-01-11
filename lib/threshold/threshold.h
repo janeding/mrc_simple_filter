@@ -94,7 +94,7 @@ Number Threshold4(Number density,
   //   |         `-._                       _,-'
   // 0 |             `-._________________,-'
   //        thresh    thresh          thresh    thresh
-  //         10_a      10_b            01_a      01_b
+  //         10_b      10_a            01_b      01_a
   //
   //
   
@@ -110,31 +110,21 @@ Number Threshold4(Number density,
   if (IsBetween(density,
                 threshold_01_a,
                 threshold_01_b))
-    g =
-      (density-threshold_01_a) /
-      (threshold_01_b-threshold_01_a);
+    g = Threshold2(density,
+                   threshold_01_a,
+                   threshold_01_b);
   else if (IsBetween(density,
                      threshold_10_a,
                      threshold_10_b))
-    g =
-      (density-threshold_10_b) /
-      (threshold_10_a-threshold_10_b);
+    g = Threshold2(density,
+                   threshold_10_a,
+                   threshold_10_b);
   else if (IsBetween(density,
                      threshold_01_b,
                      threshold_10_a))
     g = 1.0;
-  else if (IsBetween(density,
-                     threshold_10_b,
-                     threshold_01_a))
-    g = 0.0;
-  else if (threshold_01_b <
-           threshold_10_a) //upper picture
-    g = 0.0;
-  else if (threshold_10_b <
-           threshold_01_a) //lower picture
-    g = 1.0;
   else
-    throw "Invalid threshold settings (order violation).\n";
+    g = 0.0;
 
   return g;
 

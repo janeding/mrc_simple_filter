@@ -1,9 +1,8 @@
 
 combine_mrc
 ===========
-**combine_mrc** is a program for combining two volumetric images (i.e. tomograms, both of identical size) into one image/tomogram, using a combination of addition, multiplication, and thresholding operations.  These features can be used perform binary operations between two images which are similar to "**and**" and "**or**" operations.  ("**not**" operations are also possible.  See below.) As with the "filter_gauss" and "filter_dog" programs, you can also use the "-mask" argument to restrict the operation to certain voxels from the image.
-*(A detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_filter_gauss.md" file.)*
-Detailed documentation for this program is located in in the "*doc/*" subdirectory.
+**combine_mrc** is a program for combining two volumetric images (i.e. tomograms, both of identical size) into one image/tomogram, using a combination of addition, multiplication, and thresholding operations.  These features can be used perform binary operations between two images which are similar to "**and**" and "**or**" operations.  ("**not**" operations are also possible.  See below.) As with the "filter_mrc" program, you can also use the "-mask" argument to restrict the operation to certain voxels from the image.
+*(A detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_filter_mrc.md" file.)*
 
 ### Clipping the output range
 *Note:*  After adding or multiplying the voxel brightnesses, the brightness of each resulting voxel is automatically clipped between 0 and 1, *before* saving the result to a file.
@@ -38,52 +37,90 @@ It is often convenient to rescale or clip the brightnesses of the voxels from ei
 
 The following command will replace all of the brightness of all the voxels whose brightess falls below *0.48* with ***0***, and all of brightnesses above *0.49* with ***1*** (linearly scaling any voxels with brightnesses between *0.48* and *0.49* to fill the range from *0* to *1*).  *Then* it will add them together
 ```
-   combine_mrc file1.mrc,0.48,0.49 + file2.mrc,0.48,0.49 out_file.mrc
+   combine_mrc file1.mrc,0.48,0.52 + file2.mrc,0.48,0.52 out_file.mrc
 ```
-*(Again, a detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_convolve_mrc.md" file.)*
-
-When 4 numbers follow an input file name, the brightness of all the voxels from that tomogram in that file will be run through a **double-threshold** filter.  For example to replace voxels from both tomograms whose brightess falls below *0.48* with ***0***, and replace all of brightnesses between *0.49* and *0.51* with ***1***, and all of the brightness values above *0.52* with ***0*** again (linearly scaling any voxels with brightnesses between *0.48* and *0.49*, or between *0.51* and *0.52*), use this command:
-```
-   combine_mrc file1.mrc,0.48,0.49,0.51,0.52 + file2.mrc,0.48,0.49,0.51,0.52 out_file.mrc
-```
-resulting in:
+Graphically, the relationship between the voxel's input intensity ("density")
+and its output intensity is the following:
 ```
  output
- brightness
- (a.k.a. "density")
+ intensity
+  /|\                              _________________
+ 1 |                           _.-'                 
+   |                       _,-'                 
+   |                   _,-'            
+ 0 |________________,-'                     ________\ input
+                    ^              ^                / intensity
+                   0.48          0.52
+                (thresh_a)     (thresh_b)
+```
+*Note:* If the order of thresholds is reversed, the inverse images is generated.
+For example:
+```
+   combine_mrc file1.mrc,0.48,0.52 + file2.mrc,0.48,0.52 out_file.mrc
+```
+...runs the input image intensities through an inverted threshold filter
+(i.e., bright voxels become dark, and dark voxels become bright):
+```
+ output
+ intensity
+  /|\
+   |________________
+ 1 |                `-._
+   |                    `-._
+   |                        '-._            
+ 0 |                            `-.___________________\ input
+                    ^              ^                  / intensity
+                   0.48          0.52
+                (thresh_b)     (thresh_a)
+```
+*(Again, a detailed description of the threshold and rescaling functions used in this step are provided at the end of the the "doc_filter_mrc.md" file.)*
+
+
+
+Sometimes it is useful to select a ***narrow range of voxel intensities***.
+When 4 numbers follow an input file name, the brightness of all the voxels from that tomogram in that file will be run through a **double-threshold** filter.
+You might want to replace all voxels whose intensities lie between *0.4* and *0.5* with ***1***, and all of the brightness values sufficiently outside this range with 0.0.
+
+(linearly scaling voxels whose intensities fall in the ranges between [0.3,0.4] or [0.5,0.6]), then use this command:
+```
+   combine_mrc file1.mrc,0.3,0.4,0.5,0.6 + file2.mrc,0.3,0.4,0.5,0.6 out_file.mrc
+```
+Graphically, the relationship between input voxel intensity and output will be:
+```
+ output
+ intensity
   /|\
  1 |                 ________________                
    |             _,-'                `-._
    |         _,-'                        `-._
- 0 |______,-'                                `-._______\ input
-        0.48       0.49            0.51       0.52     / brightness
+ 0 |______,-'                                `-._________\ input
+        0.3       0.4               0.5       0.6        / intensity
 ```
 
-*Note:* If the order of thresholds is reversed, the inverse images is generated.  For example, the following command will replace all of the brightness of all the voxels whose brightess falls below 0.4 with 1, and all of brightnesses above 0.6 with 0 (linearly scaling any voxels with brightnesses between 0.4 and 0.6 to fill the range from 1 to 0).  (If the original tomogram had brightnesses of either 1 or 0, this can be used to perform something analogous to a "not" operation.)  *Then* it will add the two tomograms together
+*Note:* If the order of thresholds are listed in ***decreasing order***, then the inverse images is generated:
+For example:
 ```
-   combine_mrc file1.mrc,0.6,0.4 + file2.mrc,0.6,0.4 out_file.mrc
+   combine_mrc file1.mrc,0.6,0.5,0.4,0.3 + file2.mrc,0.6,0.5,0.4,0.3 out_file.mrc
 ```
-Similarly, when 4 thresholds are specified, you can invert the output image by altering their order:
+results in:
 ```
-   combine_mrc file1.mrc,0.5,0.6,0.3,0.4 + file2.mrc,0.5,0.6,0.3,0.4 out_file.mrc
-```
-...which results in:
-```
+ output
+ intensity
   /|\                                                   
- 1 |_____                                       _______\ input
-   |     `-._                               _.-'       / brightness
-   |         `-._                       _,-'             ("density")
- 0 |             `-._________________,-'
-        0.3       0.4               0.5       0.6
+ 1 |_____                                       _________
+   |     `-._                               _.-'       
+   |         `-._                       _,-'             
+ 0 |             `-._________________,-'         ________\ input
+        0.3       0.4               0.5       0.6        / intensity
 ```
 
 ### "not" operations
 *In addition to "**and**" and "**or**" operations, you can also perform "not" operations.  You can perform the "**not**" operation on each **input** by reversing the order of the thresholds following a file name.  The example above ("file1.mrc,0.6,0.4) demonstrates how to do that.*
 
 
-*Incidentally, "**not**" operations can also be performed on the **output** image by saving it to a file, and later using the "convolve_mrc" program
-program with a small sigma parameter of approximately ~1e-06 (to avoid blurring the image), and then using the "-thresh2" argument with the first threshold number greater than the second.  For example:*
+*Incidentally, "**not**" operations can also be performed on the **output** image by saving it to a file, and later using the "filter_mrc" program
+to perform a threshold operation using the "-thresh2" argument
+with the first threshold number greater than the second.  For example:*
 ```
-   convolve_mrc -gauss 1e-6 1e-6 1e-6 -thresh 0.51 0.49 -in file.mrc -out not_file.mrc
+   filter_mrc -thresh2 0.51 0.49 -in file.mrc -out not_file.mrc
 ```
-

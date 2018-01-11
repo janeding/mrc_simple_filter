@@ -286,6 +286,222 @@ GenFilterGenDog2DThresh(RealNum width_a[2],  //"a" parameter in formula
 
 
 
+template<class RealNum>
+// Create a 3-D filter and fill it with a "generalized Gaussian" function:
+//    h_xy(r) = A*exp(-r^m)
+// where   r  = sqrt((x/s_x)^2 + (y/s_y)^2 + (z/s_z)^2)
+//   and   A  is determined by normalization of the discrete sum
+// Note: "A" is equal to the value stored in the middle of the array,
+//       The caller can determine what "A" is by looking at this value.
+Filter3D<RealNum, int>
+GenFilterGenGauss3D(RealNum width[3],    //"s_x", "s_y", "s_z" parameters
+                    RealNum m_exp,       //"m" exponent parameter
+                    int halfwidth[3])
+{
+  RealNum window_threshold = 1.0;
+  for (int d=0; d<3; d++) {
+    RealNum h = ((width[d]>0) ? exp(-pow(halfwidth[d]/width[d], m_exp)) : 1.0);
+    if (h < window_threshold)
+      window_threshold = h;
+  }
+  Filter3D<RealNum, int> filter(halfwidth);
+  RealNum total = 0;
+  for (int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++) {
+    for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+      for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+        RealNum r = sqrt(SQR(ix/width[0])+SQR(iy/width[1])+SQR(iz/width[2]));
+        RealNum h = ((r>0) ? exp(-pow(r, m_exp)) : 1.0);
+        if (ABS(h) < window_threshold)
+          h = 0.0; // this eliminates corner entries which fall below threshold
+                   //(and eliminates anisotropic artifacts due to these corners)
+                   // There's no reason to keep any entries less than min value.
+        filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]=h;
+        total += h;
+      }
+    }
+  }
+  // normalize:
+  for (int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++) {
+    for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+      for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+        filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]
+          /= total;
+
+        //FOR DEBUGGING REMOVE EVENTUALLY:
+        cerr << "threshold=" << window_threshold
+             <<", aaafWeights["<<iz<<"]["<<iy<<"]["<<ix<<"] = "
+             << filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]] << endl;
+      }
+    }
+  }
+  return filter;
+} //GenFilterGenGauss3D(width, m_exp, halfwidth, window_thresh)
+
+
+template<class RealNum>
+Filter3D<RealNum, int>
+GenFilterGenGauss3DThresh(RealNum width[3],    //"s_x", "s_y", "s_z" parameters
+                          RealNum m_exp,       //"m" parameter in formula
+                          RealNum window_threshold) //controls window width
+{
+  // choose the filter window width based on the window_threshold
+  int halfwidth[3];
+  int ix = 0;
+
+  for (int d=0; d<3; d++) {
+    // Choose the filter domain window based on the "filter_cutoff_threshold"
+    //    window_threshold = exp(-(halfwidth/sigma)^m_exp);
+    //    -> (halfwidth/sigma)^m_exp = -log(window_threshold)
+    halfwidth[d] = floor(width[d] * pow(-log(window_threshold), 1.0/m_exp));
+  }
+  return GenFilterGenGauss3D(width,
+                             m_exp,
+                             halfwidth);
+} //GenFilterGenGauss3DThresh(width, m_exp, window_thresh)
+
+
+template<class RealNum>
+// Create a 3-D filter and fill it with a difference of (generalized) Gaussians:
+// This version requires that the caller has already created individual
+// filters for the two gaussians.
+// All this function does is subtract one filter from the other (and rescale).
+Filter3D<RealNum, int> 
+_GenFilterGenDog3D(RealNum width_a[3],  //"a" parameter in formula
+                   RealNum width_b[3],  //"b" parameter in formula
+                   RealNum m_exp,  //"m" parameter in formula
+                   RealNum n_exp,  //"n" parameter in formula
+                   Filter3D<RealNum, int>& filterXY_A, //filters for the two
+                   Filter3D<RealNum, int>& filterXY_B, //gaussians
+                   RealNum *pA=NULL, //optional:report A,B coeffs to user
+                   RealNum *pB=NULL) //optional:report A,B coeffs to user
+{
+  RealNum A, B;
+  //A, B = height of the central peak
+  //       The central peak is located in the middle of the filter's array
+  //       (at position "halfwidth")
+  A = filterXY_A.aaafWeights[filterXY_A.halfwidth[0]][filterXY_A.halfwidth[1]][filterXY_A.halfwidth[2]];
+  B = filterXY_B.aaafWeights[filterXY_B.halfwidth[0]][filterXY_B.halfwidth[1]][filterXY_B.halfwidth[2]];
+
+
+  // The "difference of gaussians" filter is the difference between
+  // these two (generalized) gaussian filters.
+  int halfwidth[3];
+  halfwidth[0] = MAX(filterXY_A.halfwidth[0], filterXY_B.halfwidth[0]);
+  halfwidth[1] = MAX(filterXY_A.halfwidth[1], filterXY_B.halfwidth[1]);
+  halfwidth[2] = MAX(filterXY_A.halfwidth[2], filterXY_B.halfwidth[2]);
+  Filter3D<RealNum, int> filter(halfwidth);
+
+  cerr << "Array of 3D filter entries:" << endl;
+  for (int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++) {
+    for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+      for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+        filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]=0.0;
+
+        // The two filters may have different widths, so we have to check
+        // that ix,iy and iz lie within the domain of these two filters before
+        // adding or subtracting their values from the final DOG filter.
+        if (((-filterXY_A.halfwidth[0]<=ix) && (ix<=filterXY_A.halfwidth[0])) &&
+            ((-filterXY_A.halfwidth[1]<=iy) && (iy<=filterXY_A.halfwidth[1])) &&
+            ((-filterXY_A.halfwidth[2]<=iz) && (iz<=filterXY_A.halfwidth[2])))
+
+          filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]
+            +=
+            filterXY_A.aaafWeights[iz+filterXY_A.halfwidth[2]][iy+filterXY_A.halfwidth[1]][ix+filterXY_A.halfwidth[0]] / (A - B);
+        // (The factor of 1/(A-B) insures that the central peak has height 1)
+
+        if (((-filterXY_B.halfwidth[0]<=ix) && (ix<=filterXY_B.halfwidth[0])) &&
+            ((-filterXY_B.halfwidth[1]<=iy) && (iy<=filterXY_B.halfwidth[1])) &&
+            ((-filterXY_B.halfwidth[2]<=iz) && (iz<=filterXY_B.halfwidth[2])))
+
+          filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]]
+            -=
+            filterXY_B.aaafWeights[iz+filterXY_B.halfwidth[2]][iy+filterXY_B.halfwidth[1]][ix+filterXY_B.halfwidth[0]] / (A - B);
+
+
+        //FOR DEBUGGING REMOVE EVENTUALLY
+        cerr << "aaafWeights["<<iz<<"]["<<iy<<"]["<<ix<<"] = " << filter.aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]] << endl;
+        //cerr << aaafWeights[iz+halfwidth[2]][iy+halfwidth[1]][ix+halfwidth[0]];
+        //if (ix == halfwidth[0]) cerr << "\n"; else cerr << " ";
+
+      } // for (int ix=-halfwidth[0]; ix<=halfwidth[0]; ix++) {
+    } // for (int iy=-halfwidth[1]; iy<=halfwidth[1]; iy++) {
+  } // for (int iz=-halfwidth[2]; iz<=halfwidth[2]; iz++) {
+
+  cerr << "\n";
+
+  if (pA && pB) {
+    *pA = A/(A-B); // Rescale A and B numbers returned to the caller
+    *pB = B/(A-B); // (because we divided the array entries by (A-B) earlier)
+  }
+  return filter;
+} //_GenFilterGenDog3D()
+
+
+
+template<class RealNum>
+// Create a 3-D filter and fill it with a difference of (generalized) Gaussians:
+Filter3D<RealNum, int> 
+GenFilterGenDog3D(RealNum width_a[3],  //"a" parameter in formula
+                  RealNum width_b[3],  //"b" parameter in formula
+                  RealNum m_exp,       //"m" parameter in formula
+                  RealNum n_exp,       //"n" parameter in formula
+                  int halfwidth[3],
+                  RealNum *pA=NULL, //optional:report A,B coeffs to user
+                  RealNum *pB=NULL) //optional:report A,B coeffs to user
+{
+  Filter3D<RealNum, int> filterXY_A =
+    GenFilterGenGauss3D(width_a,      //"a_x", "a_y" gaussian width parameters
+                        m_exp,        //"n" exponent parameter
+                        halfwidth);
+
+  Filter3D<RealNum, int> filterXY_B =
+    GenFilterGenGauss3D(width_b,      //"b_x", "b_y" gaussian width parameters
+                        n_exp,        //"n" exponent parameter
+                        halfwidth);
+
+  return _GenFilterGenDog3D(width_a,
+                            width_b,
+                            m_exp,
+                            n_exp,
+                            filterXY_A, filterXY_B,
+                            pA,
+                            pB);
+} //GenFilterGenDog3D(...halfwidth...)
+
+
+template<class RealNum>
+// Create a 3-D filter and fill it with a difference of (generalized) Gaussians:
+Filter3D<RealNum, int> 
+GenFilterGenDog3DThresh(RealNum width_a[3],  //"a" parameter in formula
+                        RealNum width_b[3],  //"b" parameter in formula
+                        RealNum m_exp,       //"m" parameter in formula
+                        RealNum n_exp,       //"n" parameter in formula
+                        RealNum window_threshold, //controls filter window width
+                        RealNum *pA=NULL, //optional:report A,B coeffs to user
+                        RealNum *pB=NULL) //optional:report A,B coeffs to user
+{
+  Filter3D<RealNum, int> filterXY_A =
+    GenFilterGenGauss3DThresh(width_a, //"a_x", "a_y" gaussian width parameters
+                              m_exp,   //"m" exponent parameter
+                              window_threshold);
+
+  Filter3D<RealNum, int> filterXY_B =
+    GenFilterGenGauss3DThresh(width_b, //"b_x", "b_y" gaussian width parameters
+                              n_exp,   //"n" exponent parameter
+                              window_threshold);
+
+  return _GenFilterGenDog3D(width_a,
+                            width_b,
+                            m_exp,
+                            n_exp,
+                            filterXY_A, filterXY_B,
+                            pA,
+                            pB);
+} //GenFilterGenDog3DThresh(...window_threshold...)
+
+
+
+
 
 
 template<class RealNum>
@@ -624,44 +840,60 @@ int main(int argc, char **argv) {
 
       cerr << " Filter Used:\n"
         " h(x,y,z)   = A*exp(-0.5*((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^))\n"
-        " ... where  A,  a_x (in voxels)  equal:\n"
-           << " " << A << " " 
-           << " " << settings.width_a[0] << "\n"
-        " ...   and  A,  a_y (in voxels)  equal:\n"
-           << " " << A << " "
-           << " " << settings.width_a[1] << "\n"
-        " ...   and  A,  a_z (in voxels)  equal:\n"
-           << " " << A << " "
-           << " " << settings.width_a[2] << "\n"
-          " You can plot this function in the X,Y, or Z directions using:\n"
-          " draw_filter_1D.py -gauss  A  a\n";
+        " ... where  A = " << A << "\n" 
+        "   (a_x, a_y, a_z) = "
+           << "(" << settings.width_a[0]
+           << " " << settings.width_a[1]
+           << " " << settings.width_a[2] << ")\n";
+      cerr << " You can plot a slice of this function\n"
+           << "     in the X direction using:\n"
+           << " draw_filter_1D.py -gauss "
+           << A << " " << settings.width_a[0] << endl;
+      cerr << " and in the Y direction using:\n"
+           << " draw_filter_1D.py -gauss "
+           << A << " " << settings.width_a[1] << endl;
+      cerr << " and in the Z direction using:\n"
+           << " draw_filter_1D.py -gauss "
+           << A << " " << settings.width_a[2] << endl;
         
     } // if (settings.filter_type == Settings::GAUSS)
 
 
     else if (settings.filter_type == Settings::GGAUSS) {
-      throw InputErr("Error: 3-D Generalized-Gaussians filter\n"
+      throw InputErr("Error: The 3-D Generalized-Gaussians filter\n"
                      "       has not been implemented yet.\n"
-                     "       (However implementing should be trivial to do.)\n"
-                     "For now, you must avoid using the -exponent argument.  Use ordinary Gaussians\n");
-
+                     "      (However implementing should be trivial to do.\n");
       //cerr << " Filter Used:\n"
       //  " h(x,y,z)   = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
-      //  " ... where  A,  a_x(voxels),  m  equal:\n"
-      //     << " " << A << " " 
-      //     << " " << settings.width_a[0]
-      //     << " " << settings.exp_m << "\n"
-      //  " ...   and  A,  a_y(voxels),  m  equal:\n"
-      //     << " " << A << " "
+      //  "  ... where      A = " << A << "\n"
+      //  "                 m = " << settings.m_exp << "\n" 
+      //  "   (a_x, a_y, a_z) = "
+      //     << "(" << settings.width_a[0]
       //     << " " << settings.width_a[1]
-      //     << " " << settings.exp_m << "\n"
-      //  " ...   and  A,  a_z(voxels),  m  equal:\n"
-      //     << " " << A << " "
+      //     << " " << settings.width_a[2] << ")\n";
+      //cerr << " You can plot a slice of this function\n"
+      //     << "     in the X direction using:\n"
+      //  " draw_filter_1D.py -gauss " << A << " " << settings.width_a[0] << endl;
+      //cerr << " and in the Y direction using:\n"
+      //  " draw_filter_1D.py -gauss " << A << " " << settings.width_a[1] << endl;
+      //cerr << " and in the Z direction using:\n"
+      //  " draw_filter_1D.py -gauss " << A << " " << settings.width_a[2] << endl;
+      //cerr << " You can plot a slice of this function\n"
+      //     << "     in the X direction using:\n"
+      //  " draw_filter_1D.py -ggauss " << A
+      //     << " " << settings.width_a[0]
+      //     << " " << settings.m_exp << endl;
+      //cerr << " and in the Y direction using:\n"
+      //  " draw_filter_1D.py -ggauss " << A
+      //     << " " << settings.width_a[1]
+      //     << " " << settings.m_exp << endl;
+      //cerr << " and in the Z direction using:\n"
+      //  " draw_filter_1D.py -ggauss " << A
       //     << " " << settings.width_a[2]
-      //     << " " << settings.exp_m << "\n"
-      //  " You can plot this function in the X,Y, or Z directions using:\n"
-      //  " draw_filter_1D.py -ggauss  A  a  m\n";
-    }
+      //     << " " << settings.m_exp << endl;
+
+    } //else if (settings.filter_type == Settings::GGAUSS)
+
 
 
     else if (settings.filter_type == Settings::DOG) {
@@ -741,20 +973,26 @@ int main(int argc, char **argv) {
         " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
         " h_a(x,y,z) = A*exp(-0.5*((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2))\n"
         " h_b(x,y,z) = B*exp(-0.5*((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2))\n"
-        " ... where  A,  B,  a_x,  b_x  (in voxels) equal:\n"
-           << " " << Aeff << " " << Beff
-           << " " << settings.width_a[0]
-           << " " << settings.width_b[0] << "\n"
-        " ...   and A,  B,  a_y,  b_y  (in voxels) equal:\n"
-           << " " << Aeff << " " << Beff
+        "  ... where      A = " << A << "\n"
+        "                 B = " << B << "\n" 
+        "   (a_x, a_y, a_z) = "
+           << "(" << settings.width_a[0]
            << " " << settings.width_a[1]
-           << " " << settings.width_b[1] << "\n"
-        " ...   and A,  B,  a_z,  b_z  (in voxels) equal:\n"
-           << " " << Aeff << " " << Beff
-           << " " << settings.width_a[2]
-           << " " << settings.width_b[2] << "\n"
-          " You can plot this function in the X,Y, or Z directions using:\n"
-          " draw_filter_1D.py  -dog  A  B  a  b\n";                            
+           << " " << settings.width_a[2] << ")\n"
+        "   (b_x, b_y, b_z) = "
+           << "(" << settings.width_b[0]
+           << " " << settings.width_b[1]
+           << " " << settings.width_b[2] << ")\n";
+      cerr << " You can plot a slice of this function\n"
+           << "     in the X direction using:\n"
+        " draw_filter_1D.py -dog " << A << " " << B
+           << " " << settings.width_a[0] << " " << settings.width_b[0] << endl;
+      cerr << " and in the Y direction using:\n"
+        " draw_filter_1D.py -dog " << A << " " << B
+           << " " << settings.width_a[1] << " " << settings.width_b[1] << endl;
+      cerr << " and in the Z direction using:\n"
+        " draw_filter_1D.py -dog " << A << " " << B
+           << " " << settings.width_a[2] << " " << settings.width_b[2] << endl;
 
       // Deallocate the temporary array
       Dealloc3D(tomo_in.mrc_header.nvoxels,
@@ -766,47 +1004,77 @@ int main(int argc, char **argv) {
     else if (settings.filter_type == Settings::DOGG) {
       cerr << "filter_type = Difference-of-Generalized-Gaussians (DOGG)\n";
 
-      throw InputErr("Error: The 3-D Difference-of-Generalized-Gaussians filter\n"
-                     "       has not been implemented yet.\n"
-                     "      (However implementing should be trivial to do.\n"
-                     "       Edit the code to define a functions \"GenFilterGenDog3D()\" and\n"
-                     "       GenFilterGenGauss3D This should be easy. They will be nearly identical\n"
-                     "       to the functions \"GenFilterGenDog2D()\" and \"GenFilterGenGauss2D()\")\n"
-                     "For now, you can use an ordinary 3-D DOG filter with default exponents m=n=2.\n");
+      Filter3D<float, int> filter;
+      float A, B;       // let the user know what A B coefficients were used
 
-      //Filter3D<float, int> filterXY = 
-      //GenFilterGenDog3D(settings.width_a,  //"a" parameter in formula
-      //                  settings.width_b,  //"b" parameter in formula
-      //                  settings.m_exp,    //"m" parameter in formula
-      //                  settings.n_exp,    //"n" parameter in formula
-      //                  settings.window_threshold,
-      //                  &A,
-      //                  &B);
+      if (settings.window_ratio > 0.0) {
+        // If the user did not specify the width of the filters explicitly,
+        // then, determine the filter window size (filter width) from the
+        // "window_ratio" parameters which are distances expressed
+        // as multiples of the widths of the gaussians (a and b parameters)
+        int window_halfwidth[3];
+        for (int d=0; d < 3; d++)
+          window_halfwidth[d] = floor(settings.window_ratio *
+                                      MAX(settings.width_a[d],
+                                          settings.width_b[d]));;
+                                     
+        filter = GenFilterGenDog3D(settings.width_a,//"a" parameter in formula
+                                   settings.width_b,//"b" parameter in formula
+                                   settings.m_exp,  //"m" parameter in formula
+                                   settings.n_exp,  //"n" parameter in formula
+                                   window_halfwidth,
+                                   &A,
+                                   &B);
+      } //else if (settings.window_ratio > 0.0)
+      else if (settings.window_threshold > 0)
+        filter = GenFilterGenDog3DThresh(settings.width_a,//"a" parameter
+                                   settings.width_b,//"b" parameter in formula
+                                   settings.m_exp,  //"m" parameter in formula
+                                   settings.n_exp,  //"n" parameter in formula
+                                   settings.window_threshold,
+                                   &A,
+                                   &B);
+      else
+        assert(false);      
 
-      //cerr << " Filter Used:\n"
-      //  " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
-      //  " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
-      //  " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
-      //  " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
-      //     << " " << A << " " << B
-      //     << " " << settings.width_a[0]
-      //     << " " << settings.width_b[0]
-      //     << " " << settings.m_exp
-      //     << " " << settings.n_exp << "\n"
-      //  " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
-      //     << " " << A << " " << B
-      //     << " " << settings.width_a[1]
-      //     << " " << settings.width_b[1]
-      //     << " " << settings.m_exp
-      //     << " " << settings.n_exp << "\n"
-      //  " ...    and in the Z direction,  A,  B,  a_z,  b_z(in voxels),  m,  n  equal:\n"
-      //     << " " << A << " " << B
-      //     << " " << settings.width_a[2]
-      //     << " " << settings.width_b[2]
-      //     << " " << settings.m_exp
-      //     << " " << settings.n_exp << "\n"
-      //    " You can plot these functions using:\n"
-      //    " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
+      filter.Apply(tomo_in.mrc_header.nvoxels,
+                   tomo_in.aaafDensity,
+                   tomo_out.aaafDensity,
+                   mask.aaafDensity,
+                   false,
+                   &cerr);
+
+      tomo_out.FindMinMaxMean();
+
+      cerr << " Filter Used:\n"
+        " h(x,y,z)   = h_a(x,y,z) - h_b(x,y,z)\n"
+        " h_a(x,y,z) = A*exp(-((x/a_x)^2 + (y/a_y)^2 + (z/a_z)^2)^(m/2))\n"
+        " h_b(x,y,z) = B*exp(-((x/b_x)^2 + (y/b_y)^2 + (z/b_z)^2)^(n/2))\n"
+        "  ... where      A = " << A << "\n"
+        "                 B = " << B << "\n" 
+        "                 m = " << settings.m_exp << "\n"
+        "                 n = " << settings.n_exp << "\n" 
+        "   (a_x, a_y, a_z) = "
+           << "(" << settings.width_a[0]
+           << " " << settings.width_a[1]
+           << " " << settings.width_a[2] << ")\n"
+        "   (b_x, b_y, b_z) = "
+           << "(" << settings.width_b[0]
+           << " " << settings.width_b[1]
+           << " " << settings.width_b[2] << ")\n";
+      cerr << " You can plot a slice of this function\n"
+           << "     in the X direction using:\n"
+        " draw_filter_1D.py -dogg " << A << " " << B
+           << " " << settings.width_a[0] << " " << settings.width_b[0]
+           << " " << settings.m_exp << " " << settings.n_exp << endl;
+      cerr << " and in the Y direction using:\n"
+        " draw_filter_1D.py -dogg " << A << " " << B
+           << " " << settings.width_a[1] << " " << settings.width_b[1]
+           << " " << settings.m_exp << " " << settings.n_exp << endl;
+      cerr << " and in the Z direction using:\n"
+        " draw_filter_1D.py -dogg " << A << " " << B
+           << " " << settings.width_a[2] << " " << settings.width_b[2]
+           << " " << settings.m_exp << " " << settings.n_exp << endl;
     } //else if (settings.filter_type == Settings::DOGG)
 
 
@@ -946,36 +1214,35 @@ int main(int argc, char **argv) {
                        false);
       }
       tomo_out.FindMinMaxMean();
-      cerr << "dmin = " << tomo_out.mrc_header.dmin << "\n"
-           << "dmax = " << tomo_out.mrc_header.dmax << "\n"
-           << "dmean = " << tomo_out.mrc_header.dmean << endl;
 
       cerr << " Filter Used:\n"
         " h(x,y,z) = (h_a(x,y) - h_b(x,y)) * C * exp(-0.5*(z/s)^2)\n"
         " h_a(x,y) = A*exp(-((x/a_x)^2 + (y/a_y)^2)^(m/2))\n"
         " h_b(x,y) = B*exp(-((x/b_x)^2 + (y/b_y)^2)^(n/2))\n"
-        "\n"
-        " ... where  parameters C  and  s(in voxels)  equal:\n"
-           << " " << C
-           << " " << settings.width_a[2] << "\n"
-        " You can plot this function using:\n"
-        " draw_filter_1D.py  -gauss C s\n"
-        "\n"
-        " ... where, in the X direction,  A,  B,  a_x,  b_x(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[0]
-           << " " << settings.width_b[0]
-           << " " << settings.m_exp
-           << " " << settings.n_exp << "\n"
-        "\n"
-        " ...    and in the Y direction,  A,  B,  a_y,  b_y(in voxels),  m,  n  equal:\n"
-           << " " << A << " " << B
-           << " " << settings.width_a[1]
-           << " " << settings.width_b[1]
-           << " " << settings.m_exp
-           << " " << settings.n_exp << "\n"
-        " You can plot these functions using:\n"
-        " draw_filter_1D.py  -dogg  A  B  a  b  m  n\n";
+        "  ... where  A = " << A << "\n"
+        "             B = " << B << "\n" 
+        "             C = " << C << "\n" 
+        "             m = " << settings.m_exp << "\n"
+        "             n = " << settings.n_exp << "\n" 
+        "   (a_x, a_y) = "
+           << "(" << settings.width_a[0]
+           << " " << settings.width_a[1] << ")\n"
+        "   (b_x, b_y) = "
+           << "(" << settings.width_b[0]
+           << " " << settings.width_b[1] << ")\n"
+        "            s = " << settings.width_a[2] << endl;
+      cerr << " You can plot a slice of this function\n"
+           << "     in the X direction using:\n"
+        " draw_filter_1D.py -dogg " << A*C << " " << B*C
+           << " " << settings.width_a[0] << " " << settings.width_b[0]
+           << " " << settings.m_exp << " " << settings.n_exp << endl;
+      cerr << " and in the Y direction using:\n"
+        " draw_filter_1D.py -dogg " << A*C << " " << B*C
+           << " " << settings.width_a[1] << " " << settings.width_b[1]
+           << " " << settings.m_exp << " " << settings.n_exp << endl;
+      cerr << " and in the Z direction using:\n"
+        " draw_filter_1D.py -gauss " << C*(A-B)
+           << " " << settings.width_a[2] << endl;
 
     } //else if (settings.filter_type = Settings::DOGGXY)
 
@@ -1033,10 +1300,11 @@ int main(int argc, char **argv) {
             if (mask.aaafDensity[iz][iy][ix] == 0.0)
               tomo_out.aaafDensity[iz][iy][ix] = settings.mask_out;
 
+    tomo_out.FindMinMaxMean();
 
     // Write the file
     if (settings.out_file_name != "") {
-      cerr << "writing tomogram (in float mode)" << endl;
+      cerr << "writing tomogram (in 32-bit float mode)" << endl;
       tomo_out.Write(settings.out_file_name);
       //(You can also use "tomo_out.Write(cout);" or "cout<<tomo_out;")
     }

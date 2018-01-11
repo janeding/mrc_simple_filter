@@ -1,7 +1,7 @@
-convolve_mrc
+filter_mrc
 ===========
 
-**convolve_mrc** applies a filter to a tomogram in the X,Y,Z directions
+**filter_mrc** applies a filter to a tomogram in the X,Y,Z directions
 and saves the result as a new .mrc/.rec file.
 This program can be used to rescale or invert a 3-D image,
 remove high or low frequencies (smoothing, edge detection, band pass filter).
@@ -22,7 +22,7 @@ the "*-mask*" and "*-thresh*" (and "*-thresh2*" and "*-thresh4*") arguments.
 ## Usage Example:
 
 ```
-convolve_mrc \
+filter_mrc \
    -in Bdellovibrio_1K.rec \
    -out Bdellovibrio_1K_ribosome_peaks.mrc \
    -w 1.92 \
@@ -238,6 +238,189 @@ the original image is convolved with the following function:
 ```
 (The "C" constant is determined by normalization.)
 
+
+
+## Thresholding and Rescaling (Intensity Map Filters):
+
+Thresholding filters provide a way to rescale (map) the 
+intensity of all of the voxels in the image to new intensities.
+For example, you could multiply these intensities by a constant, 
+and/or clip them within a specified range.
+Thresholding operations can be used to insure that the brightnesses 
+in the image lie between 0 and 1.
+They can also be used to select only voxels whose intensities lie within 
+a narrow range of interest.
+
+(These operations are quick to calculate because each
+ voxel's intensity depends only on its previous intensity,
+ *not* the intensities of any of the voxels nearby.)
+
+*(Again, voxels from 8-bit or 16-bit integer images are converted to floating point numbers between 0 and 1 beforehand, by dividing them by 255 and 65535, respectively.  Keep this in mind when using software such as IMOD which typically reports pixel brightnesses between 0 and 255.)*
+
+*Note:* All threshold operations are performed *after* any other filtering operations have been applied (such as Gaussian blurs, -dog filters, or -log filters).
+
+
+### -invert
+
+This filter replaces bright voxels with dark ones, and visa versa, 
+while keeping the average voxel brightness the same.
+(To calculate the new voxel intensity, 
+ the *difference* between the original voxel intensity and the average intensity
+ is *subtracted* from the average intensity.)
+Inverting an image can be useful to prepare files which you plan 
+to read with other software (such as ChimeraX and IMOD) 
+which interpret or display voxel intensities differently.
+
+
+### -thresh  thresh01
+
+If the "-thresh" argument is passed, it must be followed by a number ("thresh01").  Voxels with intensities *below* this number will be replaced 0, and voxels *above* this number will be replaced with 1.  For example:
+```
+-thresh 0.5
+```
+results in:
+```
+ output
+ intensity
+  /|\                      _____________________________\
+ 1 |                      |                             /
+   |                      |                 
+   |                      |            
+ 0 |______________________|  __________________________\ input
+                          ^                            / intensity
+                         0.5
+                     (threshold)
+                                                          
+```
+
+### -thresh2  thresh_a  thresh_b
+
+If the "-thresh2" argument is passed, then it must be followed by 2 numbers.
+For example:
+```
+-thresh2 0.48 0.52
+```
+In this case, the resulting voxel intensities in the range 
+from *thresh_a* to *thresh_b* will be scaled between 0 and 1 
+and clipped above and below.
+Graphically, the threshold filter resembles a step function
+with a smooth ramp between *thresh_a* and *thresh_b*:
+
+```
+ output
+ intensity
+  /|\                              _________________
+ 1 |                           _.-'                 
+   |                       _,-'                 
+   |                   _,-'            
+ 0 |________________,-'                     ________\ input
+                    ^              ^                / intensity
+                   0.48          0.52
+                (thresh_a)     (thresh_b)
+```
+
+***Alternatively***, if the threshold parameters are reversed
+(if ***thresh_b < thresh_a***), as in this example:
+```
+-thresh2 0.52 0.48
+```
+...then the output intensity will be inverted
+(i.e., bright voxels become dark, and dark voxels become bright):
+
+```
+ output
+ intensity
+  /|\
+   |________________
+ 1 |                `-._
+   |                    `-._
+   |                        '-._            
+ 0 |                            `-.___________________\ input
+                    ^              ^                  / intensity
+                   0.48          0.52
+                (thresh_b)     (thresh_a)
+```
+
+
+### -thresh4  thresh01_a  thresh01_b  thresh10_a  thresh10_b
+
+Sometimes it is useful to select a ***narrow range of voxel intensities***.
+*filter_mrc* allows you to do this using the **"-thresh4"** argument.
+The **"-thresh4"** must be followed by 4 numbers in order, for example:
+``` 
+ -thresh4 0.3 0.4 0.5 0.6
+```
+The resulting image voxels will be scaled
+between 0 and 1 according to the following function:
+
+```
+ output
+ intensity
+  /|\
+ 1 |                 ________________                
+   |             _,-'                `-._
+   |         _,-'                        `-._
+ 0 |______,-'                                `-._______\ input
+         ^         ^                 ^         ^       / intensity
+        0.3       0.4               0.5       0.6
+   thresh_01_a  thresh_01_b    thresh_10_a  thresh_10_b
+```
+This assumes the numbers were listed in *increasing* order.
+***Alternatively***, if the parameters are listed in *decreasing* order,
+for example:
+``` 
+ -thresh4 0.6 0.5 0.4 0.3
+```
+...then the output is inverted:
+```
+ output
+ intensity
+  /|\                                                   
+ 1 |_____                                       _________
+   |     `-._                               _.-'       
+   |         `-._                       _,-'             
+ 0 |             `-._________________,-'          _______\ input
+         ^         ^                 ^         ^         / intensity
+        0.3       0.4               0.5       0.6
+   thresh_10_b  thresh_10_a    thresh_10_b  thresh_10_a
+```
+
+
+
+## Masking
+
+The optional "-mask", "-mask-select", and "-mask-out" arguments allow you to
+ignore certain voxels from the source image (tomogram).
+
+Using "masks" allows the user to perform the filtering considering only a
+subset of voxels in the tomogram (ie, the "mask").
+
+```
+   -mask  file.mrc
+```
+The argument following the
+"-mask" argument should be the name of a tomogram file (MRC format) of the
+same size as the input tomogram.  By default only voxels belonging to the
+tomogram with non-zero voxel values in the "mask" tomogram will be considered.
+(This means if, during the filtering process, part of the filter
+falls outside the mask, then those voxels are excluded from the sum, and the
+weights from the remaining voxels will be increased (normalized) accordingly.)
+```
+   -mask-out  brightness_value
+```
+If the "-mask-out" argument is specified, then voxels outside the mask will
+be assigned to the number following this argument.  (Otherwise they are
+assigned to 0 by default.)
+```
+   -mask-select  brightness_value
+```
+If the "-mask-select" argument is specified, then instead of considering all
+voxels with non-zero values from the "mask" image/tomogram, only voxels whose mask
+value equal the number following this argument will belong to the mask.  (WARNING:  Do not supply a number outside the range from 0 to 1.  Voxels from 8-bit or 16-bit integer images/tomograms are rescaled from 0 to 1 before performing this operation.  So, in practice, this means that only values of "0" or "1" can be used with abit or 16bit images/tomograms.)
+
+
+
+
 ## Additional Arguments:
 
 ### Filter Size
@@ -282,135 +465,3 @@ This argument has no effect if the "-w" argument is used.
 
 
 
-## Masking
-
-The optional "-mask", "-mask-select", and "-mask-out" arguments allow you to
-ignore certain voxels from the source image (tomogram).
-
-Using "masks" allows the user to perform the filtering considering only a
-subset of voxels in the tomogram (ie, the "mask").
-
-```
-   -mask  file.mrc
-```
-The argument following the
-"-mask" argument should be the name of a tomogram file (MRC format) of the
-same size as the input tomogram.  By default only voxels belonging to the
-tomogram with non-zero voxel values in the "mask" tomogram will be considered.
-(This means if, during the filtering process, part of the filter
-falls outside the mask, then those voxels are excluded from the sum, and the
-weights from the remaining voxels will be increased (normalized) accordingly.)
-```
-   -mask-out  brightness_value
-```
-If the "-mask-out" argument is specified, then voxels outside the mask will
-be assigned to the number following this argument.  (Otherwise they are
-assigned to 0 by default.)
-```
-   -mask-select  brightness_value
-```
-If the "-mask-select" argument is specified, then instead of considering all
-voxels with non-zero values from the "mask" image/tomogram, only voxels whose mask
-value equal the number following this argument will belong to the mask.  (WARNING:  Do not supply a number outside the range from 0 to 1.  Voxels from 8-bit or 16-bit integer images/tomograms are rescaled from 0 to 1 before performing this operation.  So, in practice, this means that only values of "0" or "1" can be used with abit or 16bit images/tomograms.)
-
-## Rescaling and Thresholding
-
-The optional rescaling and thresholding arguments provide a way to make sure that the brightnesses in the resulting image lie between 0 and 1.
-*(Again, Voxels from 8-bit or 16-bit integer images are interpreted as floating point numbers between 0 and 1 by dividing them by 255 and 65535, respectively.)*
-The result of the filtering operations above may produce images/tomograms with
-brightness values which may like outside the range of values accepted
-by other software.
-The following arguments provide different ways to rescale the brightness
-of each voxel between 0 and 1 according to its brightness value.
-
-```
-   -thresh  thresh01
-```
-
-If the "-thresh" argument is passed, it must be followed by a number ("thresh01").  *After* the filter is applied, voxels with brightnesses below this number will be replaced with a voxel of brightness 0, and voxels above this number will be replaced with 1.
-
-```
- output
- brightness
- (a.k.a. "density")
-  /|\                      _____________________________\
- 1 |                      |                             /
-   |                      |                 
-   |                      |            
- 0 |______________________|  ___________________________\ input
-                     threshold                          / brightness
-                                                          (a.k.a. "density")
-```
-
-If the "-thresh2" argument is passed, then it must be followed by 2 numbers:
-
-```
-   -thresh2  thresh_01_a  thresh_01_b
-```
-
-In this case, *after* the filter is applied,
-the resulting voxel brightnesses will be scaled
-between 0 and 1 according to the following function:
-
-### if thresh_01_a < thresh_01_b
-```
- output
- brightness
- (a.k.a. "density")
-  /|\                              _________________\
- 1 |                           _.-'                 /
-   |                       _,-'                 
-   |                   _,-'            
- 0 |________________,-'                     ________\ input
-                 thresh         thresh              / brightness
-                  01_a           01_b                 (a.k.a. "density")
-```
-
-***Or***, if ***thresh_01_b < thresh_01_a***, then the output is inverted:
-
-```
- output
- brightness
- (a.k.a. "density")
-  /|\
-   |________________
- 1 |                `-._
-   |                    `-._
-   |                        '-._            
- 0 |                            `-.___________________\ input
-                thresh         thresh                 / brightness
-                 01_b           01_a                    (a.k.a. "density")
-```
-
-
-If the "-thresh4" argument is passed, then it must be followed by 4 numbers:
-
-```
-   -thresh4  thresh01_a  thresh01_b  thresh10_a  thresh10_b
-```
-
-In this case, the resulting image voxels will be scaled
-between 0 and 1 according to the following function:
-
-```
- output
- brightness
- (a.k.a. "density")
-  /|\
- 1 |                 ________________                
-   |             _,-'                `-._
-   |         _,-'                        `-._
- 0 |______,-'                                `-._______\ input
-        thresh    thresh          thresh    thresh     / brightness
-         01_a      01_b            10_a      10_b        ("density")
-```
-***Or***, if the user selects ***thresh_10_b < thresh_01_a***, then the output is inverted:
-```
-  /|\                                                   
- 1 |_____                                       _______\ input
-   |     `-._                               _.-'       / brightness
-   |         `-._                       _,-'             ("density")
- 0 |             `-._________________,-'
-        thresh    thresh          thresh    thresh
-         10_a      10_b            01_a      01_b
-```
