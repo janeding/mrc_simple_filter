@@ -25,8 +25,8 @@ Currently, the program supports the following list of filters:
 [Laplacian-of-Gaussians](https://en.wikipedia.org/wiki/Blob_detection#The_Laplacian_of_Gaussian),
 inverse ("-invert", bright <--> dark),
 and
-several threshold filters ("-thresh", "-thresh2", "-thresh4",
-(Threshold filters are useful for selecting voxels with intensities
+several threshold filters ("-thresh", "-thresh2", "-thresh4".
+ Threshold filters are useful for selecting voxels with intensities
  which lie in a certain range.)
 Both isotropic and anisotropic versions of these filters are supported.
 (Fast [separable](https://en.wikipedia.org/wiki/Separable_filter) filters are used when possible.)
